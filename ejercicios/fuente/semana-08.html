@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Semana 08 · Strings, Arrays y Hashes | Guía de ejercicios</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="worksheet.css">
+</head>
+<body class="student">
+
+<header class="sheet-header">
+  <div class="brand">
+    <span class="course">ZeldaInterpreter · Lenguajes y Compiladores · 2027-1</span>
+    <span class="book">Libro guía: <em>Writing An Interpreter In Go</em> — Thorsten Ball</span>
+  </div>
+  <div class="title-row">
+    <div>
+      <div class="kicker">Guía de ejercicios · Semana 08 de 08</div>
+      <h1>Extensiones: Strings, Built-ins, Arrays y Hashes</h1>
+      <div class="ref">Libro: Capítulo 4 (pp. 152–201) · todo el pipeline + proyecto final</div>
+    </div>
+    <div class="week-badge" aria-hidden="true">08</div>
+  </div>
+</header>
+
+<div class="student-fields">
+  <div class="field"><label>Nombre</label><span></span></div>
+  <div class="field"><label>Código</label><span></span></div>
+  <div class="field small"><label>Fecha</label><span></span></div>
+  <div class="field small"><label>Nota</label><span></span></div>
+</div>
+
+<div class="intro">
+  <div class="goals">
+    <h2>Al terminar esta guía podrás…</h2>
+    <ul><li>Aplicar la receta token → lexer → parser → objeto → evaluador.</li><li>Predecir el comportamiento de strings, built-ins, arrays y hashes.</li><li>Diseñar e implementar una extensión del lenguaje como proyecto final.</li></ul>
+  </div>
+  <div class="instructions">
+    <h2>Instrucciones</h2>
+    <ul>
+      <li>Partes A y B: a mano, <strong>sin computador</strong>. Razona con el código del libro.</li>
+      <li>Parte C: entrega en tu repositorio <code>monkey</code>; <code>go test ./...</code> debe pasar.</li>
+      <li>Puntaje total: <strong>100 pts</strong> (+ reto opcional).</li>
+      <li>Clase de referencia: <code>clases/semana-08-extensiones.html</code></li>
+    </ul>
+  </div>
+</div>
+
+<section class="part pa"><h2><span>Parte A · Conceptos</span><span class="part-pts">25 pts</span></h2><p class="part-desc">Responde con tus palabras. Se valora la justificación, no solo la respuesta.</p><div class="item"><div class="item-head"><span class="qnum">1</span><div class="qtext">Enumera los 5 pasos (paquetes) que hay que tocar para agregar un tipo de dato nuevo a Monkey. <span class="pts">(5 pts)</span></div></div><div class="item-body"><div class="lines" style="--n:3" aria-hidden="true"></div></div></div><div class="item"><div class="item-head"><span class="qnum">2</span><div class="qtext">¿Por qué no se puede usar <code>map[object.Object]object.Object</code> para los hashes? <span class="pts">(5 pts)</span></div></div><div class="item-body"><div class="lines" style="--n:3" aria-hidden="true"></div></div></div><div class="item"><div class="item-head"><span class="qnum">3</span><div class="qtext">¿Para qué sirve el campo <code>Type</code> dentro de <code>HashKey</code>? <span class="pts">(5 pts)</span></div></div><div class="item-body"><div class="lines" style="--n:2" aria-hidden="true"></div></div></div><div class="item"><div class="item-head"><span class="qnum">4</span><div class="qtext">¿Por qué <code>rest</code> y <code>push</code> devuelven un array nuevo en vez de modificar el original? <span class="pts">(5 pts)</span></div></div><div class="item-body"><div class="lines" style="--n:2" aria-hidden="true"></div></div></div><div class="item"><div class="item-head"><span class="qnum">5</span><div class="qtext">En <code>evalIdentifier</code> se busca primero en el entorno y luego en <code>builtins</code>. ¿Qué consecuencia tiene ese orden? <span class="pts">(5 pts)</span></div></div><div class="item-body"><div class="lines" style="--n:2" aria-hidden="true"></div></div></div></section><section class="part pb"><h2><span>Parte B · Trazas a mano</span><span class="part-pts">35 pts</span></h2><p class="part-desc">Resuelve en papel, sin ejecutar código. Muestra el razonamiento.</p><div class="item"><div class="item-head"><span class="qnum">6</span><div class="qtext">Escribe el resultado de cada programa: <span class="pts">(24 pts)</span></div></div><div class="item-body"><table class="fill-table"><thead><tr><th>Programa</th><th>Resultado</th><th>Programa</th><th>Resultado</th></tr></thead><tbody><tr><td><code>&quot;Hello&quot; + &quot; &quot; + &quot;World!&quot;</code></td><td class="fill"></td><td><code>rest(rest([1, 2, 3]))</code></td><td class="fill"></td></tr><tr><td><code>&quot;Hello&quot; - &quot;World&quot;</code></td><td class="fill"></td><td><code>rest([])</code></td><td class="fill"></td></tr><tr><td><code>len(&quot;one&quot;, &quot;two&quot;)</code></td><td class="fill"></td><td><code>let a = [1]; let b = push(a, 2); len(a);</code></td><td class="fill"></td></tr><tr><td><code>len(1)</code></td><td class="fill"></td><td><code>{&quot;foo&quot;: 5}[&quot;bar&quot;]</code></td><td class="fill"></td></tr><tr><td><code>[1, 2 * 2, 3 + 3]</code></td><td class="fill"></td><td><code>{true: 5}[true]</code></td><td class="fill"></td></tr><tr><td><code>[1, 2, 3][3]</code></td><td class="fill"></td><td><code>{1: &quot;a&quot;}[1 == 1]</code></td><td class="fill"></td></tr><tr><td><code>[1, 2, 3][-1]</code></td><td class="fill"></td><td><code>{&quot;name&quot;: &quot;Monkey&quot;}[fn(x) { x }]</code></td><td class="fill"></td></tr><tr><td><code>&quot;a&quot; == &quot;a&quot;</code></td><td class="fill"></td><td><code>first([])</code></td><td class="fill"></td></tr></tbody></table></div></div><div class="item"><div class="item-head"><span class="qnum">7</span><div class="qtext">Escribe el <code>String()</code> que produce el parser: <span class="pts">(6 pts)</span></div></div><div class="item-body"><table class="fill-table"><thead><tr><th>Entrada</th><th>String()</th></tr></thead><tbody><tr><td><code>a * [1, 2, 3, 4][b * c] * d</code></td><td class="fill"></td></tr><tr><td><code>add(a * b[2], b[1], 2 * [1, 2][1])</code></td><td class="fill"></td></tr></tbody></table></div></div><div class="item"><div class="item-head"><span class="qnum">8</span><div class="qtext">Explica, paso a paso, qué ocurre al evaluar <code>map([1, 2], fn(x) { x * 2 })</code> con el <code>map</code> del Grand Finale (escribe los valores de <code>arr</code> y <code>accumulated</code> en cada llamada a <code>iter</code>). <span class="pts">(5 pts)</span></div></div><div class="item-body"><div class="lines" style="--n:4" aria-hidden="true"></div></div></div></section><section class="part pc"><h2><span>Parte C · Programación en Go</span><span class="part-pts">40 pts</span></h2><p class="part-desc">Implementa en tu repositorio. Cada función debe tener su prueba <em>table-driven</em>.</p><div class="problem"><div class="problem-head"><span class="qnum">9</span><h3>Funciones de orden superior en Monkey</h3><span class="pts">12 pts</span></div><div class="problem-body"><p>Escribe en Monkey, usando solo <code>len</code>, <code>first</code>, <code>rest</code>, <code>push</code> y recursión:</p><ul><li><code>filter(arr, pred)</code> → <code>filter([1, 2, 3, 4], fn(x) { x &gt; 2 })</code> = <code>[3, 4]</code></li><li><code>reverse(arr)</code> → <code>[3, 2, 1]</code></li><li><code>contains(arr, x)</code> → <code>true</code>/<code>false</code></li></ul></div></div><div class="problem"><div class="problem-head"><span class="qnum">10</span><h3>Nuevos built-ins: <code>keys</code> y <code>type</code></h3><span class="pts">14 pts</span></div><div class="problem-body"><p>Implementa <code>keys(hash)</code> (array con las llaves) y <code>type(x)</code> (string con el tipo: <code>"INTEGER"</code>, <code>"ARRAY"</code>…). Valida número y tipo de argumentos con mensajes como los del libro.</p></div></div><div class="problem"><div class="problem-head"><span class="qnum">11</span><h3>Comparar strings por valor</h3><span class="pts">14 pts</span></div><div class="problem-body"><p>Haz que <code>==</code> y <code>!=</code> funcionen con strings (hoy dan error). <code>"a" == "a"</code> → <code>true</code>, <code>"a" != "b"</code> → <code>true</code>. Actualiza las pruebas.</p></div></div></section><section class="reto"><h2><span>Reto opcional · Proyecto final del curso</span><span class="part-pts">+10 pts</span></h2><p>Elige <strong>una</strong> extensión e impleméntala de punta a punta (lexer → evaluador) con pruebas en cada paquete. Preséntala en 5 minutos con una demo en el REPL.</p><ol><li>Ciclo <code>while (cond) { … }</code> + asignación.</li><li>Números de punto flotante (<code>3.14</code>) mezclables con enteros.</li><li>Mensajes de error con línea y columna.</li><li>Operadores lógicos <code>&amp;&amp;</code>/<code>||</code> con cortocircuito.</li><li>Built-ins de strings: <code>split</code>, <code>join</code>, <code>upper</code>.</li><li>Macros (<em>The Lost Chapter</em>).</li></ol></section>
+
+<section class="rubric">
+  <h2><span>Rúbrica de evaluación</span></h2>
+  <table>
+    <thead><tr><th>Criterio</th><th>Descripción</th><th class="num">Pts</th></tr></thead>
+    <tbody><tr><td>Parte A</td><td>Respuestas correctas y justificadas.</td><td class='num'>25</td></tr><tr><td>Parte B</td><td>Resultados correctos, incluido el texto exacto de los errores.</td><td class='num'>35</td></tr><tr><td>Parte C</td><td>Funcionalidad, pruebas table-driven y calidad del código.</td><td class='num'>40</td></tr><tr><td>Proyecto final · Funcionalidad</td><td>La extensión funciona de punta a punta en el REPL.</td><td class='num'>40%</td></tr><tr><td>Proyecto final · Pruebas</td><td>Pruebas en cada paquete tocado (lexer, parser, evaluator).</td><td class='num'>25%</td></tr><tr><td>Proyecto final · Diseño y código</td><td>Decisiones explicadas en el README; código limpio.</td><td class='num'>15%</td></tr><tr><td>Proyecto final · Presentación</td><td>Demo clara de 5 minutos, explicando el pipeline.</td><td class='num'>20%</td></tr></tbody>
+  </table>
+</section>
+
+<footer class="sheet-footer">ZeldaInterpreter · Lenguajes y Compiladores 2027-1 · Semana 08 · Strings, Arrays y Hashes</footer>
+</body>
+</html>

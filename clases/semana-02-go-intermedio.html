@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Semana 2: Go para Intérpretes | ZeldaInterpreter · Lenguajes y Compiladores 2027-1</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css">
+    <link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body data-week="2">
+    <a class="skip-link" href="#contenido">Saltar al contenido</a>
+
+    <aside class="sidebar">
+        <div class="logo">
+            <a href="../index.html">
+                <h1 class="brand"><span class="brand-logo" data-logo="56"></span><span class="brand-name">ZeldaInterpreter</span></h1><p class="logo-subtitle">Semana 02 · Bloque I (Go)</p>
+            </a>
+        </div>
+
+        <a href="../index.html" class="back-link"><span data-icon="home"></span>Portal del Curso</a>
+
+        <button type="button" class="present-btn" id="toggle-slides-btn" aria-pressed="false">
+            <span data-icon="presentation"></span>Modo Presentación <kbd>P</kbd>
+        </button>
+        <a class="pdf-btn" data-pdf-link href="#"><span data-icon="file-down"></span>Ejercicios de la semana (PDF)</a>
+
+        <nav>
+            <div class="nav-group-title">Contenido de la Clase</div>
+            <ul>
+                <li><a href="#portada" class="active">Portada</a></li>
+                <li><a href="#structs">1. Structs y Constructores</a></li>
+                <li><a href="#punteros">2. Punteros y Receivers</a></li>
+                <li><a href="#interfaces">3. Interfaces Implícitas</a></li>
+                <li><a href="#type-switch">4. Type Assertions & Switch</a></li>
+                <li><a href="#func-values">5. Funciones como Valores</a></li>
+                <li><a href="#io-buffers">6. Buffers e io.Reader/Writer</a></li>
+                <li><a href="#testing">7. Testing y Table-Driven Tests</a></li>
+                <li><a href="#simulador-zelda">Simulador ZeldaInterpreter</a></li>
+                <li><a href="#taller">8. Taller de la Semana 2</a></li>
+            </ul>
+            <div data-course-nav></div>
+        </nav>
+
+        <div class="sidebar-footer">
+            Semana 2 de 8 · Go Intermedio
+        </div>
+    </aside>
+
+    <main class="content" id="contenido">
+
+        <!-- ==================== SLIDE 1: PORTADA ==================== -->
+        <header id="portada" class="hero slide">
+            <div class="hero-badge accent">Semana 02 · Bloque I: Dominando Go</div>
+            <h1><span class="gradient-text">Go Intermedio</span> para Construir Intérpretes</h1>
+            <p>Hoy dominaremos los 4 patrones arquitectónicos que Thorsten Ball utiliza en cada capítulo del libro: <strong>Structs + Punteros</strong>, <strong>Interfaces implícitas</strong>, <strong>Funciones de primera clase</strong> y <strong>Table-Driven Testing</strong>.</p>
+            <div class="hero-meta">
+                <span class="meta-pill"><span data-icon="clock"></span>Duración: Semana 2 (2 sesiones)</span>
+                <span class="meta-pill"><span data-icon="target"></span>Puente directo hacia Cap. 1–4</span>
+                <span class="meta-pill"><span data-icon="flask"></span>Enfoque: Desarrollo Guiado por Pruebas (TDD)</span>
+            </div>
+        </header>
+
+        <!-- ==================== SLIDE 2: STRUCTS ==================== -->
+        <section id="structs" class="section slide">
+            <h2>1. Structs y Funciones Constructoras</h2>
+            <p>Go no tiene clases ni herencia. Agrupamos datos relacionados con <code>struct</code> y definimos una función convencional llamada <code>New(...)</code> para inicializar instancias válidas.</p>
+
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>scanner.go</span></div>
+<pre><code class="language-go">type Token struct {
+    Type    string
+    Literal string
+}
+
+type Scanner struct {
+    input    string
+    position int
+    ch       byte
+}
+
+// Convención en Go: función constructora New()
+func New(input string) *Scanner {
+    s := &Scanner{input: input}
+    return s
+}</code></pre>
+                </div>
+
+                <div class="card card-primary">
+                    <h3 style="color: var(--primary);">¿Por qué no clases?</h3>
+                    <p>Go favorece la <strong>composición sobre la herencia</strong>. En lugar de árboles rígidos de clases padre/hijo:</p>
+                    <ul class="feature-list">
+                        <li>Los datos viven en <code>struct</code> simples y planos.</li>
+                        <li>El comportamiento se adjunta mediante <strong>métodos</strong>.</li>
+                        <li>El polimorfismo se logra con <strong>interfaces</strong> pequeñas.</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== SLIDE 3: PUNTEROS Y RECEIVERS ==================== -->
+        <section id="punteros" class="section slide">
+            <h2>2. Punteros y Receivers: Valor vs Puntero</h2>
+            <p>En Go, todo se pasa <strong>por valor</strong> (se hace una copia). Si un método necesita modificar el estado interno de un <code>struct</code> (como avanzar la posición del Lexer), <strong>debe usar un pointer receiver</strong> (<code>*Tipo</code>).</p>
+
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>receivers.go</span></div>
+<pre><code class="language-go">// [MAL] Value receiver: recibe una COPIA.
+// Los cambios se pierden al salir de la función.
+func (s Scanner) avanzarMal() {
+    s.position++ // ¡Solo modifica la copia!
+}
+
+// [OK] Pointer receiver: recibe la DIRECCIÓN en memoria.
+// Los cambios persisten en el Scanner original.
+func (s *Scanner) avanzarBien() {
+    s.position++
+}</code></pre>
+                </div>
+
+                <div class="card glass">
+                    <h3>Operadores de Puntero en Go</h3>
+                    <div class="table-wrap">
+                        <table>
+                            <tr><th>Símbolo</th><th>Significado</th><th>Ejemplo</th></tr>
+                            <tr><td><code>&x</code></td><td>Dirección de memoria de <code>x</code></td><td><code>p := &Scanner{}</code></td></tr>
+                            <tr><td><code>*T</code></td><td>Tipo "puntero a T"</td><td><code>func New() *Lexer</code></td></tr>
+                            <tr><td><code>*p</code></td><td>Desreferenciar (leer valor)</td><td><code>valor := *p</code></td></tr>
+                            <tr><td><code>nil</code></td><td>Puntero vacío (sin objeto)</td><td><code>if err != nil</code></td></tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-box">
+                <strong>Regla práctica para Monkey:</strong> <code>Token</code> es pequeño e inmutable → se pasa por <strong>valor</strong>. <code>Lexer</code>, <code>Parser</code>, <code>Environment</code> y los nodos del AST/Objetos → se pasan por <strong>puntero</strong> (<code>*Lexer</code>, <code>*ast.Program</code>, <code>*object.Integer</code>).
+            </div>
+        </section>
+
+        <!-- ==================== SLIDE 4: INTERFACES ==================== -->
+        <section id="interfaces" class="section slide">
+            <h2>3. Interfaces Implícitas: El Corazón del AST y los Objetos</h2>
+            <p>En Go <strong>no existe la palabra <code>implements</code></strong>. Si un <code>struct</code> tiene todos los métodos declarados por una interfaz, automáticamente la satisface.</p>
+
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>object_preview.go</span></div>
+<pre><code class="language-go">// Definimos el contrato
+type Object interface {
+    Type() string
+    Inspect() string
+}
+
+// Integer satisface Object implícitamente
+type Integer struct {
+    Value int64
+}
+
+func (i *Integer) Type() string    { return "INTEGER" }
+func (i *Integer) Inspect() string { return fmt.Sprintf("%d", i.Value) }
+
+// Boolean también satisface Object
+type Boolean struct {
+    Value bool
+}
+
+func (b *Boolean) Type() string    { return "BOOLEAN" }
+func (b *Boolean) Inspect() string { return fmt.Sprintf("%t", b.Value) }</code></pre>
+                </div>
+
+                <div class="card card-accent">
+                    <h3 style="color: var(--accent);">¿Por qué es tan poderoso en un Intérprete?</h3>
+                    <p>Gracias a las interfaces podremos escribir:</p>
+                    <ul class="feature-list accent">
+                        <li><code>Eval(node ast.Node) object.Object</code> — Una sola función acepta <strong>cualquier</strong> nodo del AST y devuelve <strong>cualquier</strong> valor de Monkey.</li>
+                        <li><code>Statements []ast.Statement</code> — Un slice puede mezclar sentencias <code>let</code>, <code>return</code> y expresiones.</li>
+                        <li><code>Start(in io.Reader, out io.Writer)</code> — Nuestro REPL funciona con consola, archivos o tests en memoria.</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== SLIDE 5: TYPE ASSERTIONS & SWITCH ==================== -->
+        <section id="type-switch" class="section slide">
+            <h2>4. Type Assertions y Type Switches</h2>
+            <p>Cuando recibimos un valor a través de una interfaz (por ejemplo <code>node ast.Node</code>), a menudo necesitamos descubrir su <strong>tipo concreto real</strong> para operar con sus campos.</p>
+
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>type_assertion.go</span></div>
+<pre><code class="language-go">// Type assertion segura ("comma ok")
+// Muy usada en parser_test.go y evaluator_test.go
+var obj Object = &Integer{Value: 42}
+
+entero, ok := obj.(*Integer)
+if !ok {
+    fmt.Println("No era un Integer")
+    return
+}
+fmt.Println("Valor:", entero.Value) // 42</code></pre>
+                </div>
+
+                <div class="code-block">
+                    <div class="code-header"><span>type_switch.go (Así luce el Evaluador)</span></div>
+<pre><code class="language-go">func describir(obj Object) string {
+    switch v := obj.(type) {
+    case *Integer:
+        return fmt.Sprintf("Entero: %d", v.Value)
+    case *Boolean:
+        return fmt.Sprintf("Booleano: %t", v.Value)
+    default:
+        return "Tipo desconocido"
+    }
+}</code></pre>
+                </div>
+            </div>
+
+            <div class="analogy-box">
+                <strong>Adelanto de la Semana 6:</strong> La función principal <code>Eval(node ast.Node, env *object.Environment)</code> es literalmente un gran <code>switch node := node.(type)</code> que inspecciona cada nodo del árbol y decide cómo evaluarlo.
+            </div>
+        </section>
+
+        <!-- ==================== SLIDE 6: FUNCIONES COMO VALORES ==================== -->
+        <section id="func-values" class="section slide">
+            <h2>5. Funciones de Primera Clase y Closures</h2>
+            <p>En Go, las funciones son <strong>ciudadanos de primera clase</strong>: se pueden guardar en variables, pasar como argumentos y almacenar dentro de un <code>map</code>.</p>
+
+            <div class="code-block">
+                <div class="code-header"><span>pratt_preview.go (Patrón exacto de la Semana 5)</span></div>
+<pre><code class="language-go">// 1. Definimos un "tipo función"
+type OperacionFn func(a, b int64) int64
+
+// 2. Creamos una tabla de despacho (map de token -&gt; función)
+operadores := map[string]OperacionFn{
+    "+": func(a, b int64) int64 { return a + b },
+    "-": func(a, b int64) int64 { return a - b },
+    "*": func(a, b int64) int64 { return a * b },
+}
+
+// 3. Buscamos y ejecutamos dinámicamente
+if fn, ok := operadores["*"]; ok {
+    fmt.Println(fn(6, 7)) // 42
+}</code></pre>
+            </div>
+
+            <div class="tip-box">
+                <strong>¿Por qué importa esto?</strong> En el <strong>Pratt Parser (Semana 5)</strong>, registraremos dos mapas: <code>prefixParseFns</code> e <code>infixParseFns</code> que mapean cada <code>token.TokenType</code> a la función encargada de parsearlo. ¡Cero <code>switch</code> gigantescos!
+            </div>
+        </section>
+
+        <!-- ==================== SLIDE 7: IO Y BUFFERS ==================== -->
+        <section id="io-buffers" class="section slide">
+            <h2>6. <code>bytes.Buffer</code> y <code>bufio.Scanner</code></h2>
+            <p>Dos utilidades de la biblioteca estándar aparecerán constantemente en nuestro intérprete:</p>
+
+            <div class="grid-2">
+                <div class="card card-primary">
+                    <h3 style="color: var(--primary);"><code>bytes.Buffer</code> (en <code>ast.go</code>)</h3>
+                    <p>Construye strings eficientemente sin crear copias intermedias en cada concatenación. Lo usaremos en el método <code>String()</code> de cada nodo del AST.</p>
+                    <div class="code-block">
+<pre><code class="language-go">var out bytes.Buffer
+out.WriteString("let ")
+out.WriteString(nombre)
+out.WriteString(" = ")
+out.WriteString(valor)
+out.WriteString(";")
+return out.String()</code></pre>
+                    </div>
+                </div>
+
+                <div class="card card-accent">
+                    <h3 style="color: var(--accent);"><code>bufio.Scanner</code> (en <code>repl.go</code>)</h3>
+                    <p>Lee línea por línea desde cualquier <code>io.Reader</code> (como <code>os.Stdin</code>) de manera limpia y segura.</p>
+                    <div class="code-block">
+<pre><code class="language-go">scanner := bufio.NewScanner(in)
+for {
+    fmt.Fprintf(out, "&gt;&gt; ")
+    if !scanner.Scan() {
+        return
+    }
+    line := scanner.Text()
+    // Enviar line al Lexer / Parser / Eval
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== SLIDE 8: TESTING ==================== -->
+        <section id="testing" class="section slide">
+            <h2>7. Testing Nativo y Table-Driven Tests</h2>
+            <p>Todo el libro <em>Writing An Interpreter In Go</em> se construye con <strong>pruebas unitarias antes o junto al código</strong>. Go incluye el paquete <code>testing</code> sin instalar nada.</p>
+
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>calc_test.go</span></div>
+<pre><code class="language-go">package calc
+
+import "testing"
+
+func TestSumar(t *testing.T) {
+    // Tabla de casos de prueba (Table-Driven Test)
+    tests := []struct {
+        a, b     int64
+        expected int64
+    }{
+        {2, 3, 5},
+        {-1, 1, 0},
+        {10, 25, 35},
+    }
+
+    for i, tt := range tests {
+        got := Sumar(tt.a, tt.b)
+        if got != tt.expected {
+            t.Fatalf("tests[%d] - esperado=%d, obtenido=%d",
+                i, tt.expected, got)
+        }
+    }
+}</code></pre>
+                </div>
+
+                <div class="card card-success">
+                    <h3 style="color: var(--success);">Reglas del Testing en Go</h3>
+                    <ul class="feature-list">
+                        <li>El archivo debe terminar en <code>_test.go</code>.</li>
+                        <li>Cada test empieza con <code>Test...</code> y recibe <code>(t *testing.T)</code>.</li>
+                        <li><code>t.Errorf(...)</code> registra fallo y continúa; <code>t.Fatalf(...)</code> detiene ese test de inmediato.</li>
+                        <li>Ejecutar todo el proyecto:
+                            <div class="code-block" style="margin-top: 0.5rem;">
+<pre><code class="language-bash">go test -v ./...</code></pre>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== SIMULADOR ZELDAINTERPRETER ==================== -->
+        <section id="simulador-zelda" class="section slide">
+            <h2>Simulador ZeldaInterpreter</h2>
+            <p>Cada fase usa un patrón de Go de esta semana: el Lexer es un <code>struct</code> con <em>pointer receivers</em>, cada nodo del AST implementa la interfaz <code>ast.Node</code> y el evaluador es un gran <em>type switch</em>. Las funciones de Monkey, además, son closures.</p>
+            <div data-simulator data-stage="eval" data-code="let doble = fn(x) { x * 2 };&#10;doble(21);"></div>
+        </section>
+
+        <!-- ==================== SLIDE 9: TALLER ==================== -->
+        <section id="taller" class="section slide">
+            <h2>8. Taller Práctico — Semana 2 (Pre-Intérprete)</h2>
+            <div class="card glass">
+                <h3><span data-icon="wrench"></span>Reto: Mini Árbol de Expresiones Aritméticas con Tests</h3>
+                <p>Construye un paquete <code>expr</code> que modele y evalúe expresiones aritméticas simples usando los patrones exactos que usaremos en Monkey:</p>
+                <ol>
+                    <li>Define una interfaz <code>Expr</code> con dos métodos: <code>Eval() int64</code> y <code>String() string</code>.</li>
+                    <li>Crea dos structs que implementen <code>Expr</code>:
+                        <ul>
+                            <li><code>Numero{Valor int64}</code></li>
+                            <li><code>Binaria{Izq Expr, Op string, Der Expr}</code> (soporta <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code> usando un mapa de funciones <code>map[string]func(int64, int64) int64</code>).</li>
+                        </ul>
+                    </li>
+                    <li>Construye a mano el árbol para <code>(2 + 3) * 4</code>, imprime su <code>String()</code> y su resultado <code>Eval()</code> (<code>20</code>).</li>
+                    <li>Escribe un archivo <code>expr_test.go</code> con al menos <strong>5 casos Table-Driven</strong> y verifica que <code>go test -v ./...</code> pase en verde.</li>
+                </ol>
+            </div>
+
+            <div class="tip-box">
+                <strong>Siguiente: módulos Go III–VI.</strong> Antes de abrir el libro profundizamos en <strong>POO en Go</strong> (agregación, composición, embedding), <strong>concurrencia</strong> y <strong>patrones de diseño</strong>. Después, en la <strong>Semana 3</strong>, construimos el Lexer y el primer REPL de Monkey.
+            </div>
+            <div class="exercise-cta">
+                <div>
+                    <h3>Guía de ejercicios · Semana 2</h3>
+                    <p>Preguntas conceptuales, trazas a mano y retos de programación para resolver en casa.</p>
+                </div>
+                <a class="btn-download" data-pdf-link href="#"><span data-icon="file-down"></span>Descargar PDF</a>
+            </div>
+
+        </section>
+
+        <nav class="class-footer-nav" data-course-footer aria-label="Navegación entre clases"></nav>
+
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/go.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/bash.min.js"></script>
+    <script src="../assets/course.js"></script>
+    <script src="../assets/presentation.js"></script>
+    <script src="../assets/monkey.js"></script>
+    <script src="../assets/simulator.js"></script>
+</body>
+</html>

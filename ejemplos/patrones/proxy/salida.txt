@@ -1,0 +1,3 @@
+Set x:  <nil>
+Set PI: no se puede reasignar la constante PI
+fib(40) = 102334155 con 41 cálculos reales

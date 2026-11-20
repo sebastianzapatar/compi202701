@@ -1,0 +1,4 @@
+">> let x = ;"
+"[ERROR] no prefix parse function for ; found"
+"\x1b[36m>>\x1b[0m let x = ;"
+"\x1b[31merror:\x1b[0m no prefix parse function for ; found"

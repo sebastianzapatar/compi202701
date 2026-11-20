@@ -1,0 +1,6 @@
+-> Eval("1 + 2 + 3")
+   (medido: true )
+<- 6, err=<nil>
+-> Eval("1 + x")
+   (medido: true )
+<- 0, err=no es entero: "x"

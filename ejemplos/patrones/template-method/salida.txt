@@ -1,0 +1,3 @@
+calculando 1+2
+error: expresión incompleta: [1 +]
+MONKEY

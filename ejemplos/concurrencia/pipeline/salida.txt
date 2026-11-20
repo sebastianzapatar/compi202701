@@ -1,0 +1,4 @@
+programa 0 = 3
+programa 2: error: token inválido "x"
+programa 1 = 60
+programa 3: error: context deadline exceeded

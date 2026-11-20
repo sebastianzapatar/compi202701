@@ -1,0 +1,2 @@
+tras el error: map[a:2 b:3 x:1] | type mismatch: INTEGER + BOOLEAN
+restaurado:    map[x:1]

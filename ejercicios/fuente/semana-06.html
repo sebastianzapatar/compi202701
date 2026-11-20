@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Semana 06 · Evaluación y Objetos | Guía de ejercicios</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="worksheet.css">
+</head>
+<body class="student">
+
+<header class="sheet-header">
+  <div class="brand">
+    <span class="course">ZeldaInterpreter · Lenguajes y Compiladores · 2027-1</span>
+    <span class="book">Libro guía: <em>Writing An Interpreter In Go</em> — Thorsten Ball</span>
+  </div>
+  <div class="title-row">
+    <div>
+      <div class="kicker">Guía de ejercicios · Semana 06 de 08</div>
+      <h1>Evaluación I: Objetos, Expresiones y Control</h1>
+      <div class="ref">Libro: Capítulo 3.1 – 3.8 (pp. 103–135) · paquetes <code>object</code> y <code>evaluator</code></div>
+    </div>
+    <div class="week-badge" aria-hidden="true">06</div>
+  </div>
+</header>
+
+<div class="student-fields">
+  <div class="field"><label>Nombre</label><span></span></div>
+  <div class="field"><label>Código</label><span></span></div>
+  <div class="field small"><label>Fecha</label><span></span></div>
+  <div class="field small"><label>Nota</label><span></span></div>
+</div>
+
+<div class="intro">
+  <div class="goals">
+    <h2>Al terminar esta guía podrás…</h2>
+    <ul><li>Predecir el resultado (<code>Inspect()</code>) de programas Monkey.</li><li>Explicar truthiness, singletons y el burbujeo de <code>return</code> y errores.</li><li>Extender el evaluador con nuevos operadores y errores.</li></ul>
+  </div>
+  <div class="instructions">
+    <h2>Instrucciones</h2>
+    <ul>
+      <li>Partes A y B: a mano, <strong>sin computador</strong>. Razona con el código del libro.</li>
+      <li>Parte C: entrega en tu repositorio <code>monkey</code>; <code>go test ./...</code> debe pasar.</li>
+      <li>Puntaje total: <strong>100 pts</strong> (+ reto opcional).</li>
+      <li>Clase de referencia: <code>clases/semana-06-evaluacion-base.html</code></li>
+    </ul>
+  </div>
+</div>
+
+<section class="part pa"><h2><span>Parte A · Conceptos</span><span class="part-pts">25 pts</span></h2><p class="part-desc">Responde con tus palabras. Se valora la justificación, no solo la respuesta.</p><div class="item"><div class="item-head"><span class="qnum">1</span><div class="qtext">Compara tree-walking, bytecode + VM y JIT. ¿Por qué el libro elige tree-walking? <span class="pts">(5 pts)</span></div></div><div class="item-body"><div class="lines" style="--n:3" aria-hidden="true"></div></div></div><div class="item"><div class="item-head"><span class="qnum">2</span><div class="qtext">¿Por qué <code>TRUE</code>, <code>FALSE</code> y <code>NULL</code> se crean una sola vez? ¿Qué se compara realmente en <code>left == right</code>? <span class="pts">(5 pts)</span></div></div><div class="item-body"><div class="lines" style="--n:3" aria-hidden="true"></div></div></div><div class="item"><div class="item-head"><span class="qnum">3</span><div class="qtext">En <code>evalInfixExpression</code>, ¿por qué el caso de dos enteros debe ir <strong>antes</strong> del caso <code>operator == "=="</code>? <span class="pts">(5 pts)</span></div></div><div class="item-body"><div class="lines" style="--n:3" aria-hidden="true"></div></div></div><div class="item"><div class="item-head"><span class="qnum">4</span><div class="qtext">Marca los valores que son <strong>truthy</strong> en Monkey: <span class="pts">(4 pts)</span></div></div><div class="item-body"><ul class="options"><li><span class="box"></span><code>true</code></li><li><span class="box"></span><code>false</code></li><li><span class="box"></span><code>0</code></li><li><span class="box"></span><code>null (if sin else)</code></li><li><span class="box"></span><code>-1</code></li><li><span class="box"></span><code>fn(x) { x }</code></li></ul></div></div><div class="item"><div class="item-head"><span class="qnum">5</span><div class="qtext">¿Por qué <code>evalProgram</code> desenvuelve el <code>ReturnValue</code> pero <code>evalBlockStatement</code> no? <span class="pts">(6 pts)</span></div></div><div class="item-body"><div class="lines" style="--n:3" aria-hidden="true"></div></div></div></section><section class="part pb"><h2><span>Parte B · Trazas a mano</span><span class="part-pts">35 pts</span></h2><p class="part-desc">Resuelve en papel, sin ejecutar código. Muestra el razonamiento.</p><div class="item"><div class="item-head"><span class="qnum">6</span><div class="qtext">Escribe el resultado de <code>Inspect()</code> para cada programa (si hay error, escribe el mensaje completo): <span class="pts">(22 pts)</span></div></div><div class="item-body"><table class="fill-table"><thead><tr><th>Programa</th><th>Resultado</th></tr></thead><tbody><tr><td><code>(5 + 10 * 2 + 15 / 3) * 2 + -10</code></td><td class="fill"></td></tr><tr><td><code>7 / 2</code></td><td class="fill"></td></tr><tr><td><code>!!5</code></td><td class="fill"></td></tr><tr><td><code>!0</code></td><td class="fill"></td></tr><tr><td><code>1 &lt; 2 == true</code></td><td class="fill"></td></tr><tr><td><code>true == 1</code></td><td class="fill"></td></tr><tr><td><code>if (0) { 10 } else { 20 }</code></td><td class="fill"></td></tr><tr><td><code>if (false) { 10 }</code></td><td class="fill"></td></tr><tr><td><code>-true</code></td><td class="fill"></td></tr><tr><td><code>5 + true; 5;</code></td><td class="fill"></td></tr><tr><td><code>true + false</code></td><td class="fill"></td></tr><tr><td><code>9; return 2 * 5; 9;</code></td><td class="fill"></td></tr></tbody></table></div></div><div class="item"><div class="item-head"><span class="qnum">7</span><div class="qtext">Para el siguiente programa, describe qué devuelve cada llamada (<code>evalBlockStatement</code> interno, externo y <code>evalProgram</code>) y el resultado final: <span class="pts">(8 pts)</span></div></div><div class="item-body"><div class="code"><pre>if (10 &gt; 1) {
+  if (10 &gt; 1) {
+    return 10;
+  }
+  return 1;
+}</pre></div><div class="lines" style="--n:4" aria-hidden="true"></div></div></div><div class="item"><div class="item-head"><span class="qnum">8</span><div class="qtext">¿Qué imprimiría el evaluador si <code>evalBlockStatement</code> desenvolviera el <code>ReturnValue</code> igual que <code>evalProgram</code>, para el programa anterior? <span class="pts">(5 pts)</span></div></div><div class="item-body"><div class="lines" style="--n:2" aria-hidden="true"></div></div></div></section><section class="part pc"><h2><span>Parte C · Programación en Go</span><span class="part-pts">40 pts</span></h2><p class="part-desc">Implementa en tu repositorio. Cada función debe tener su prueba <em>table-driven</em>.</p><div class="problem"><div class="problem-head"><span class="qnum">9</span><h3>División por cero sin <em>panic</em></h3><span class="pts">12 pts</span></div><div class="problem-body"><p>Hoy <code>10 / 0</code> hace que Go entre en <em>panic</em>. Haz que devuelva <code>ERROR: division by zero</code> y agrégalo a <code>TestErrorHandling</code>.</p></div></div><div class="problem"><div class="problem-head"><span class="qnum">10</span><h3>Evaluar <code>%</code>, <code>&lt;=</code> y <code>&gt;=</code></h3><span class="pts">14 pts</span></div><div class="problem-body"><p>Si hiciste las extensiones de las semanas 3 y 5, agrégalas al evaluador. Prueba con <code>10 % 3</code> → <code>1</code>, <code>5 &lt;= 5</code> → <code>true</code>, <code>4 &gt;= 9</code> → <code>false</code>. (Si no las hiciste, implementa al menos <code>%</code> de punta a punta.)</p></div></div><div class="problem"><div class="problem-head"><span class="qnum">11</span><h3>Más pruebas de errores</h3><span class="pts">14 pts</span></div><div class="problem-body"><p>Amplía <code>TestErrorHandling</code> con al menos 6 casos nuevos: errores dentro de <code>if</code> anidados, errores en la condición, en prefijos dentro de infijos (<code>5 + -true</code>) y verificación de que nada después del error se evalúa.</p></div></div></section><section class="reto"><h2><span>Reto opcional · Modo estricto</span><span class="part-pts">+10 pts</span></h2><p>Agrega una opción para que la condición de un <code>if</code> deba ser <code>BOOLEAN</code>: <code>if (5) { 1 }</code> → <code>ERROR: condition must be BOOLEAN, got INTEGER</code>. Discute en el README las ventajas y desventajas frente a truthiness.</p></section>
+
+<section class="rubric">
+  <h2><span>Rúbrica de evaluación</span></h2>
+  <table>
+    <thead><tr><th>Criterio</th><th>Descripción</th><th class="num">Pts</th></tr></thead>
+    <tbody><tr><td>Parte A</td><td>Respuestas correctas, con justificación en palabras propias (no copia literal del libro).</td><td class='num'>25</td></tr><tr><td>Parte B</td><td>Trazas completas y correctas; se muestra el razonamiento paso a paso.</td><td class='num'>35</td></tr><tr><td>Parte C · Funcionalidad</td><td>El código compila y hace lo pedido, incluidos los casos borde.</td><td class='num'>20</td></tr><tr><td>Parte C · Pruebas</td><td>Pruebas <em>table-driven</em> que cubren casos normales y de error; <code>go test ./...</code> en verde.</td><td class='num'>15</td></tr><tr><td>Parte C · Calidad</td><td>Código formateado con <code>gofmt</code>, nombres claros, sin código muerto.</td><td class='num'>5</td></tr><tr><td>Reto (opcional)</td><td>Funciona, tiene pruebas y se explica su diseño en el README.</td><td class='num'>+10</td></tr></tbody>
+  </table>
+</section>
+
+<footer class="sheet-footer">ZeldaInterpreter · Lenguajes y Compiladores 2027-1 · Semana 06 · Evaluación y Objetos</footer>
+</body>
+</html>

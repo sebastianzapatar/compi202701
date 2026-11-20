@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Go VI: Patrones de Comportamiento | ZeldaInterpreter · Lenguajes y Compiladores 2027-1</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css">
+    <link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body data-week="go6" data-week-num="2">
+    <a class="skip-link" href="#contenido">Saltar al contenido</a>
+
+    <aside class="sidebar">
+        <div class="logo">
+            <a href="../index.html">
+                <h1 class="brand"><span class="brand-logo" data-logo="56"></span><span class="brand-name">ZeldaInterpreter</span></h1>
+                <p class="logo-subtitle">Go VI · Patrones de comportamiento</p>
+            </a>
+        </div>
+
+        <a href="../index.html" class="back-link"><span data-icon="home"></span>Portal del Curso</a>
+
+        <button type="button" class="present-btn" id="toggle-slides-btn" aria-pressed="false">
+            <span data-icon="presentation"></span>Modo Presentación <kbd>P</kbd>
+        </button>
+        <a class="pdf-btn" data-pdf-link href="#"><span data-icon="file-down"></span>Ejercicios del módulo (PDF)</a>
+
+        <nav>
+            <div class="nav-group-title">Contenido de la Clase</div>
+            <ul>
+                <li><a href="#portada" class="active">Portada y objetivos</a></li>
+                <li><a href="#que-es">1. ¿Qué es un patrón?</a></li>
+                <li><a href="#explorador">2. Explorador de patrones</a></li>
+                <li><a href="#p-chain-of-responsibility">3. Chain of Responsibility</a></li>
+                <li><a href="#p-command">4. Command</a></li>
+                <li><a href="#p-iterator">5. Iterator</a></li>
+                <li><a href="#p-mediator">6. Mediator</a></li>
+                <li><a href="#p-memento">7. Memento</a></li>
+                <li><a href="#p-observer">8. Observer</a></li>
+                <li><a href="#p-state">9. State</a></li>
+                <li><a href="#p-strategy">10. Strategy</a></li>
+                <li><a href="#p-template-method">11. Template Method</a></li>
+                <li><a href="#p-visitor">12. Visitor</a></li>
+                <li><a href="#comparativa">13. Comparativa</a></li>
+                <li><a href="#simulador-zelda">Simulador ZeldaInterpreter</a></li>
+                <li><a href="#resumen">14. Ideas clave</a></li>
+                <li><a href="#taller">15. Taller</a></li>
+            </ul>
+            <div data-course-nav></div>
+        </nav>
+
+        <div class="sidebar-footer">Bloque I ampliado · Módulo Go VI</div>
+    </aside>
+
+    <main class="content" id="contenido">
+
+        <header id="portada" class="hero slide">
+            <div class="hero-badge accent"><span data-icon="layers"></span>Go VI · Bloque I ampliado</div>
+            <h1>Patrones de Diseño II: <span class="gradient-text">De Comportamiento</span></h1>
+            <p>Los 10 patrones de comportamiento organizan <strong>cómo colaboran</strong> los objetos: quién atiende una petición, cómo se notifican eventos, cómo se recorren estructuras y cómo cambian los algoritmos. Varios de ellos ya están escondidos dentro del intérprete del libro.</p>
+            <div class="hero-meta">
+                <span class="meta-pill"><span data-icon="code"></span>10 programas en <code>ejemplos/patrones/</code></span>
+                <a class="meta-pill" href="https://refactoring.guru/es/design-patterns/catalog" target="_blank" rel="noopener"><span data-icon="link"></span>Referencia: catálogo de Refactoring.Guru</a>
+            </div>
+            <div class="objectives" aria-label="Objetivos de la clase">
+                <div class="objective"><span class="num">1</span><span>Reconocer Strategy, Iterator y Visitor dentro del intérprete.</span></div>
+                <div class="objective"><span class="num">2</span><span>Implementar comandos, eventos y estados de forma idiomática en Go.</span></div>
+                <div class="objective"><span class="num">3</span><span>Comparar el Visitor con el <em>type switch</em> del evaluador.</span></div>
+                <div class="objective"><span class="num">4</span><span>Elegir el patrón adecuado y justificarlo.</span></div>
+            </div>
+        </header>
+
+        <section id="que-es" class="section slide">
+            <h2>1. Patrones de comportamiento: repaso</h2>
+            <p>En Go V vimos cómo <strong>crear</strong> y <strong>componer</strong> objetos. Los patrones de comportamiento tratan sobre <strong>algoritmos y responsabilidades</strong>. Tres de ellos ya los usamos sin nombrarlos:</p>
+            <div class="grid-3">
+                <div class="card card-primary"><h3 style="color: var(--primary);">Iterator</h3><p><code>lexer.NextToken()</code> entrega un token a la vez sin exponer el string interno.</p></div>
+                <div class="card card-accent"><h3 style="color: var(--accent);">Strategy</h3><p><code>prefixParseFns</code>/<code>infixParseFns</code>: una función de parsing distinta por token.</p></div>
+                <div class="card card-success"><h3 style="color: var(--success);">Visitor (alternativa)</h3><p><code>Eval</code> recorre el AST con un <em>type switch</em>; un Visitor haría lo mismo con métodos <code>Accept</code>.</p></div>
+            </div>
+            <div class="info-box"><strong>Referencia:</strong> el <a href="https://refactoring.guru/es/design-patterns/catalog" target="_blank" rel="noopener">catálogo de Refactoring.Guru</a> explica cada patrón con diagramas y ejemplos en Go. Aquí los vemos aplicados al mundo de los intérpretes.</div>
+        </section>
+
+        <section id="explorador" class="section slide">
+            <h2>2. Explorador de patrones</h2>
+            <p>Filtra por categoría o busca por palabra clave (por ejemplo <em>AST</em>, <em>REPL</em> o <em>lexer</em>). Los 22 patrones del curso están aquí; los de la otra clase abren en su página.</p>
+            <div data-pattern-explorer></div>
+        </section>
+
+        <section id="p-chain-of-responsibility" class="section slide" data-pattern="chain-of-responsibility">
+            <h2>3. Chain of Responsibility</h2>
+            <div class="pat-meta">
+                <span class="meta-pill">Comportamiento</span>
+                <span class="meta-pill"><span data-icon="code"></span><code>ejemplos/patrones/chain-of-responsibility</code></span>
+                <a class="meta-pill" href="https://refactoring.guru/es/design-patterns/catalog" target="_blank" rel="noopener"><span data-icon="link"></span>Catálogo de referencia</a>
+            </div>
+            <div class="grid-2">
+                <div>
+                    <div class="card card-primary">
+                        <h3 style="color: var(--primary);">Intención</h3>
+                        <p>Pasar una petición por una cadena de manejadores; cada uno decide si la atiende o la pasa al siguiente.</p>
+                        <h4>Problema en ZeldaInterpreter</h4>
+                        <p>El REPL debe reconocer comandos (<code>:help</code>, <code>:env</code>, <code>:quit</code>) antes de tratar la línea como código Monkey.</p>
+                    </div>
+                    <div class="grid-2">
+                        <div class="card card-success"><h3 style="color: var(--success);">Úsalo cuando…</h3><p>Cuando varios objetos pueden atender una petición y el orden importa.</p></div>
+                        <div class="card card-warning"><h3 style="color: var(--warning);">Evítalo si…</h3><p>Si siempre la atiende el mismo manejador.</p></div>
+                    </div>
+                    <div class="info-box"><strong>En Go:</strong> Una interfaz <code>Handler</code> y un struct base embebido con el puntero al siguiente.</div>
+                    <div class="tip-box"><strong>En el intérprete:</strong> Comandos del REPL y, en general, cualquier cadena de <em>middlewares</em>.</div>
+                </div>
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>ejemplos/patrones/chain-of-responsibility/main.go</span></div>
+<pre><code class="language-go" data-src="ejemplos/patrones/chain-of-responsibility/main.go">// Chain of Responsibility: pasar una petición por una cadena de manejadores
+// hasta que uno la atienda. Ejemplo: comandos del REPL antes de evaluar código.
+package main
+
+import (
+	"fmt"
+	"strings"
+)
+
+type Handler interface {
+	Handle(line string) string
+	SetNext(h Handler) Handler
+}
+
+// base implementa el "pasar al siguiente"; los manejadores concretos la embeben.
+type base struct{ next Handler }
+
+func (b *base) SetNext(h Handler) Handler {
+	b.next = h
+	return h
+}
+
+func (b *base) pass(line string) string {
+	if b.next == nil {
+		return "(nadie atendió la línea)"
+	}
+	return b.next.Handle(line)
+}
+
+type emptyLine struct{ base }
+
+type command struct {
+	base
+	name, reply string
+}
+
+type evaluate struct{ base }
+
+func (h *emptyLine) Handle(l string) string {
+	if strings.TrimSpace(l) == "" {
+		return "(nada que evaluar)"
+	}
+	return h.pass(l)
+}
+
+func (h *command) Handle(l string) string {
+	if strings.TrimSpace(l) == h.name {
+		return h.reply
+	}
+	return h.pass(l)
+}
+
+func (h *evaluate) Handle(l string) string { return "evaluando: " + l }
+
+func main() {
+	chain := &amp;emptyLine{}
+	chain.SetNext(&amp;command{name: ":help", reply: "comandos: :help :env"}).
+		SetNext(&amp;command{name: ":env", reply: "x = 5"}).
+		SetNext(&amp;evaluate{})
+
+	for _, in := range []string{"", ":help", ":env", "1 + 2"} {
+		fmt.Printf("%-8q -&gt; %s\n", in, chain.Handle(in))
+	}
+}</code></pre>
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header"><span>$ go run ./patrones/chain-of-responsibility</span></div>
+<pre><code class="language-plaintext" data-out="ejemplos/patrones/chain-of-responsibility">""       -&gt; (nada que evaluar)
+":help"  -&gt; comandos: :help :env
+":env"   -&gt; x = 5
+"1 + 2"  -&gt; evaluando: 1 + 2</code></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="p-command" class="section slide" data-pattern="command">
+            <h2>4. Command</h2>
+            <div class="pat-meta">
+                <span class="meta-pill">Comportamiento</span>
+                <span class="meta-pill"><span data-icon="code"></span><code>ejemplos/patrones/command</code></span>
+                <a class="meta-pill" href="https://refactoring.guru/es/design-patterns/catalog" target="_blank" rel="noopener"><span data-icon="link"></span>Catálogo de referencia</a>
+            </div>
+            <div class="grid-2">
+                <div>
+                    <div class="card card-primary">
+                        <h3 style="color: var(--primary);">Intención</h3>
+                        <p>Encapsular una petición como un objeto para guardarla, encolarla, deshacerla o rehacerla.</p>
+                        <h4>Problema en ZeldaInterpreter</h4>
+                        <p>Queremos que el REPL permita <code>:undo</code> de la última sentencia <code>let</code>.</p>
+                    </div>
+                    <div class="grid-2">
+                        <div class="card card-success"><h3 style="color: var(--success);">Úsalo cuando…</h3><p>Historial, deshacer/rehacer, colas de tareas, macros.</p></div>
+                        <div class="card card-warning"><h3 style="color: var(--warning);">Evítalo si…</h3><p>Para acciones simples que nunca se guardan ni se deshacen.</p></div>
+                    </div>
+                    <div class="info-box"><strong>En Go:</strong> Una interfaz <code>Execute/Undo</code> o simplemente valores de tipo <code>func()</code>.</div>
+                    <div class="tip-box"><strong>En el intérprete:</strong> Historial del REPL; la secuela del libro compila a instrucciones (<em>opcodes</em>) que son comandos.</div>
+                </div>
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>ejemplos/patrones/command/main.go</span></div>
+<pre><code class="language-go" data-src="ejemplos/patrones/command/main.go">// Command: encapsular una petición como objeto para guardarla, deshacerla o rehacerla.
+// Ejemplo: historial del REPL con :undo.
+package main
+
+import "fmt"
+
+type Env map[string]int
+
+type Command interface {
+	Execute(env Env)
+	Undo(env Env)
+}
+
+type LetCommand struct {
+	Name    string
+	Value   int
+	prev    int
+	existed bool
+}
+
+func (c *LetCommand) Execute(env Env) {
+	c.prev, c.existed = env[c.Name]
+	env[c.Name] = c.Value
+}
+
+func (c *LetCommand) Undo(env Env) {
+	if c.existed {
+		env[c.Name] = c.prev
+	} else {
+		delete(env, c.Name)
+	}
+}
+
+type History struct {
+	env  Env
+	done []Command
+}
+
+func (h *History) Run(c Command) {
+	c.Execute(h.env)
+	h.done = append(h.done, c)
+}
+
+func (h *History) Undo() {
+	if len(h.done) == 0 {
+		return
+	}
+	last := h.done[len(h.done)-1]
+	h.done = h.done[:len(h.done)-1]
+	last.Undo(h.env)
+}
+
+func main() {
+	h := &amp;History{env: Env{}}
+	h.Run(&amp;LetCommand{Name: "x", Value: 1})
+	h.Run(&amp;LetCommand{Name: "x", Value: 2})
+	h.Run(&amp;LetCommand{Name: "y", Value: 9})
+	fmt.Println("antes: ", h.env)
+	h.Undo() // deshace let y
+	h.Undo() // deshace let x = 2
+	fmt.Println("después:", h.env)
+}</code></pre>
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header"><span>$ go run ./patrones/command</span></div>
+<pre><code class="language-plaintext" data-out="ejemplos/patrones/command">antes:  map[x:2 y:9]
+después: map[x:1]</code></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="p-iterator" class="section slide" data-pattern="iterator">
+            <h2>5. Iterator</h2>
+            <div class="pat-meta">
+                <span class="meta-pill">Comportamiento</span>
+                <span class="meta-pill"><span data-icon="code"></span><code>ejemplos/patrones/iterator</code></span>
+                <a class="meta-pill" href="https://refactoring.guru/es/design-patterns/catalog" target="_blank" rel="noopener"><span data-icon="link"></span>Catálogo de referencia</a>
+            </div>
+            <div class="grid-2">
+                <div>
+                    <div class="card card-primary">
+                        <h3 style="color: var(--primary);">Intención</h3>
+                        <p>Recorrer los elementos de una colección sin exponer su estructura interna.</p>
+                        <h4>Problema en ZeldaInterpreter</h4>
+                        <p>El parser necesita tokens uno a uno sin saber cómo el lexer los obtiene del texto.</p>
+                    </div>
+                    <div class="grid-2">
+                        <div class="card card-success"><h3 style="color: var(--success);">Úsalo cuando…</h3><p>Colecciones con recorridos personalizados o perezosos.</p></div>
+                        <div class="card card-warning"><h3 style="color: var(--warning);">Evítalo si…</h3><p>Si basta con un slice y <code>for range</code>.</p></div>
+                    </div>
+                    <div class="info-box"><strong>En Go:</strong> Método <code>Next()</code> o funciones <code>iter.Seq</code> que funcionan con <code>for range</code>.</div>
+                    <div class="tip-box"><strong>En el intérprete:</strong> ¡El lexer! <code>NextToken()</code> es un iterador; con Go 1.23 puede exponerse como <code>iter.Seq[Token]</code>.</div>
+                </div>
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>ejemplos/patrones/iterator/main.go</span></div>
+<pre><code class="language-go" data-src="ejemplos/patrones/iterator/main.go">// Iterator: recorrer una colección sin exponer su estructura interna.
+// El lexer ya es un iterador (NextToken). Con Go 1.23 también podemos usar range sobre funciones.
+package main
+
+import (
+	"fmt"
+	"iter"
+	"strings"
+)
+
+type Token struct{ Type, Literal string }
+
+type Lexer struct {
+	words []string
+	pos   int
+}
+
+func New(src string) *Lexer { return &amp;Lexer{words: strings.Fields(src)} }
+
+// Estilo clásico del libro: llamar NextToken() hasta EOF.
+func (l *Lexer) NextToken() Token {
+	if l.pos &gt;= len(l.words) {
+		return Token{"EOF", ""}
+	}
+	w := l.words[l.pos]
+	l.pos++
+	if w == "let" {
+		return Token{"LET", w}
+	}
+	return Token{"WORD", w}
+}
+
+// Estilo Go 1.23: un iter.Seq que funciona con for range.
+func (l *Lexer) All() iter.Seq[Token] {
+	return func(yield func(Token) bool) {
+		for {
+			t := l.NextToken()
+			if t.Type == "EOF" || !yield(t) {
+				return
+			}
+		}
+	}
+}
+
+func main() {
+	l := New("let x = 5 ;")
+	for tok := l.NextToken(); tok.Type != "EOF"; tok = l.NextToken() {
+		fmt.Print(tok.Type, " ")
+	}
+	fmt.Println()
+
+	for tok := range New("let y = x ;").All() {
+		fmt.Print(tok.Literal, " ")
+		if tok.Literal == "=" {
+			break // el iterador se detiene limpiamente
+		}
+	}
+	fmt.Println()
+}</code></pre>
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header"><span>$ go run ./patrones/iterator</span></div>
+<pre><code class="language-plaintext" data-out="ejemplos/patrones/iterator">LET WORD WORD WORD WORD 
+let y = </code></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="p-mediator" class="section slide" data-pattern="mediator">
+            <h2>6. Mediator</h2>
+            <div class="pat-meta">
+                <span class="meta-pill">Comportamiento</span>
+                <span class="meta-pill"><span data-icon="code"></span><code>ejemplos/patrones/mediator</code></span>
+                <a class="meta-pill" href="https://refactoring.guru/es/design-patterns/catalog" target="_blank" rel="noopener"><span data-icon="link"></span>Catálogo de referencia</a>
+            </div>
+            <div class="grid-2">
+                <div>
+                    <div class="card card-primary">
+                        <h3 style="color: var(--primary);">Intención</h3>
+                        <p>Centralizar la comunicación entre componentes para que no dependan unos de otros directamente.</p>
+                        <h4>Problema en ZeldaInterpreter</h4>
+                        <p>Un editor, una consola y un panel de errores deben coordinarse; si se llaman entre sí, todo queda acoplado.</p>
+                    </div>
+                    <div class="grid-2">
+                        <div class="card card-success"><h3 style="color: var(--success);">Úsalo cuando…</h3><p>Interfaces gráficas, salas de chat, sistemas con muchas interacciones cruzadas.</p></div>
+                        <div class="card card-warning"><h3 style="color: var(--warning);">Evítalo si…</h3><p>Si el mediador termina concentrando toda la lógica del sistema.</p></div>
+                    </div>
+                    <div class="info-box"><strong>En Go:</strong> Un struct que conoce a todos los componentes y un método <code>Notify</code>.</div>
+                    <div class="tip-box"><strong>En el intérprete:</strong> Una “mini IDE” web para Monkey que coordina editor, salida y errores (como el simulador del curso).</div>
+                </div>
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>ejemplos/patrones/mediator/main.go</span></div>
+<pre><code class="language-go" data-src="ejemplos/patrones/mediator/main.go">// Mediator: los componentes no se hablan entre sí; se comunican a través de un mediador.
+// Ejemplo: mini IDE con editor, consola y panel de errores coordinados por la sesión.
+package main
+
+import "fmt"
+
+type Mediator interface {
+	Notify(sender, event, data string)
+}
+
+type Editor struct{ m Mediator }
+type Console struct{ lines []string }
+type ErrorPanel struct{ errors []string }
+
+func (e *Editor) Submit(code string) { e.m.Notify("editor", "submit", code) }
+func (c *Console) Print(s string)    { c.lines = append(c.lines, s) }
+func (p *ErrorPanel) Show(s string)  { p.errors = append(p.errors, s) }
+func (p *ErrorPanel) Clear()         { p.errors = nil }
+
+// Session es el mediador: conoce a todos y decide quién reacciona a qué.
+type Session struct {
+	editor  *Editor
+	console *Console
+	panel   *ErrorPanel
+}
+
+func NewSession() *Session {
+	s := &amp;Session{console: &amp;Console{}, panel: &amp;ErrorPanel{}}
+	s.editor = &amp;Editor{m: s}
+	return s
+}
+
+func (s *Session) Notify(sender, event, data string) {
+	if sender == "editor" &amp;&amp; event == "submit" {
+		s.panel.Clear()
+		if data == "" {
+			s.panel.Show("código vacío")
+			return
+		}
+		s.console.Print("&gt;&gt; " + data)
+	}
+}
+
+func main() {
+	s := NewSession()
+	s.editor.Submit("let x = 5;")
+	s.editor.Submit("")
+	fmt.Println("consola:", s.console.lines)
+	fmt.Println("errores:", s.panel.errors)
+}</code></pre>
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header"><span>$ go run ./patrones/mediator</span></div>
+<pre><code class="language-plaintext" data-out="ejemplos/patrones/mediator">consola: [&gt;&gt; let x = 5;]
+errores: [código vacío]</code></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="p-memento" class="section slide" data-pattern="memento">
+            <h2>7. Memento</h2>
+            <div class="pat-meta">
+                <span class="meta-pill">Comportamiento</span>
+                <span class="meta-pill"><span data-icon="code"></span><code>ejemplos/patrones/memento</code></span>
+                <a class="meta-pill" href="https://refactoring.guru/es/design-patterns/catalog" target="_blank" rel="noopener"><span data-icon="link"></span>Catálogo de referencia</a>
+            </div>
+            <div class="grid-2">
+                <div>
+                    <div class="card card-primary">
+                        <h3 style="color: var(--primary);">Intención</h3>
+                        <p>Capturar y restaurar el estado interno de un objeto sin exponer sus detalles.</p>
+                        <h4>Problema en ZeldaInterpreter</h4>
+                        <p>Si un programa falla a mitad de ejecución, el REPL debería volver al entorno anterior.</p>
+                    </div>
+                    <div class="grid-2">
+                        <div class="card card-success"><h3 style="color: var(--success);">Úsalo cuando…</h3><p>Deshacer, puntos de control (checkpoints) y transacciones.</p></div>
+                        <div class="card card-warning"><h3 style="color: var(--warning);">Evítalo si…</h3><p>Si el estado es enorme y copiarlo es demasiado costoso.</p></div>
+                    </div>
+                    <div class="info-box"><strong>En Go:</strong> Un tipo con campos privados que solo el dueño sabe crear y leer; <code>maps.Clone</code> ayuda.</div>
+                    <div class="tip-box"><strong>En el intérprete:</strong> Guardar el <code>Environment</code> antes de evaluar y restaurarlo si aparece un <code>*object.Error</code>.</div>
+                </div>
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>ejemplos/patrones/memento/main.go</span></div>
+<pre><code class="language-go" data-src="ejemplos/patrones/memento/main.go">// Memento: guardar y restaurar el estado de un objeto sin romper su encapsulación.
+// Ejemplo: si un programa falla a la mitad, el REPL restaura el entorno anterior.
+package main
+
+import (
+	"errors"
+	"fmt"
+	"maps"
+)
+
+type Environment struct{ store map[string]int }
+
+// Snapshot es el memento: una instantánea opaca (campo privado).
+type Snapshot struct{ store map[string]int }
+
+func (e *Environment) Save() Snapshot     { return Snapshot{store: maps.Clone(e.store)} }
+func (e *Environment) Restore(s Snapshot) { e.store = maps.Clone(s.store) }
+
+func runProgram(env *Environment, stmts []string) error {
+	for _, s := range stmts {
+		if s == "ERROR" {
+			return errors.New("type mismatch: INTEGER + BOOLEAN")
+		}
+		env.store[s] = len(env.store) + 1
+	}
+	return nil
+}
+
+func main() {
+	env := &amp;Environment{store: map[string]int{"x": 1}}
+
+	snap := env.Save() // el REPL (caretaker) guarda antes de ejecutar
+	err := runProgram(env, []string{"a", "b", "ERROR", "c"})
+	fmt.Println("tras el error:", env.store, "|", err)
+
+	env.Restore(snap)
+	fmt.Println("restaurado:   ", env.store)
+}</code></pre>
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header"><span>$ go run ./patrones/memento</span></div>
+<pre><code class="language-plaintext" data-out="ejemplos/patrones/memento">tras el error: map[a:2 b:3 x:1] | type mismatch: INTEGER + BOOLEAN
+restaurado:    map[x:1]</code></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="p-observer" class="section slide" data-pattern="observer">
+            <h2>8. Observer</h2>
+            <div class="pat-meta">
+                <span class="meta-pill">Comportamiento</span>
+                <span class="meta-pill"><span data-icon="code"></span><code>ejemplos/patrones/observer</code></span>
+                <a class="meta-pill" href="https://refactoring.guru/es/design-patterns/catalog" target="_blank" rel="noopener"><span data-icon="link"></span>Catálogo de referencia</a>
+            </div>
+            <div class="grid-2">
+                <div>
+                    <div class="card card-primary">
+                        <h3 style="color: var(--primary);">Intención</h3>
+                        <p>Notificar automáticamente a varios suscriptores cuando ocurre un evento.</p>
+                        <h4>Problema en ZeldaInterpreter</h4>
+                        <p>Queremos un tracer, un profiler y un depurador escuchando lo que hace el evaluador sin modificarlo cada vez.</p>
+                    </div>
+                    <div class="grid-2">
+                        <div class="card card-success"><h3 style="color: var(--success);">Úsalo cuando…</h3><p>Eventos, notificaciones, interfaces reactivas.</p></div>
+                        <div class="card card-warning"><h3 style="color: var(--warning);">Evítalo si…</h3><p>Si el orden de las notificaciones importa o hay demasiados observadores encadenados.</p></div>
+                    </div>
+                    <div class="info-box"><strong>En Go:</strong> Un slice de interfaces <code>Observer</code>, o canales cuando los suscriptores son goroutines.</div>
+                    <div class="tip-box"><strong>En el intérprete:</strong> Eventos <code>call</code>/<code>error</code> del evaluador para depurar programas Monkey.</div>
+                </div>
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>ejemplos/patrones/observer/main.go</span></div>
+<pre><code class="language-go" data-src="ejemplos/patrones/observer/main.go">// Observer: un objeto notifica a sus suscriptores cuando ocurre algo.
+// Ejemplo: el evaluador emite eventos; un tracer y un profiler los escuchan.
+package main
+
+import "fmt"
+
+type Event struct {
+	Kind string // "call" | "error"
+	Name string
+}
+
+type Observer interface{ OnEvent(e Event) }
+
+type Evaluator struct{ observers []Observer }
+
+func (ev *Evaluator) Subscribe(o Observer) { ev.observers = append(ev.observers, o) }
+
+func (ev *Evaluator) emit(e Event) {
+	for _, o := range ev.observers {
+		o.OnEvent(e)
+	}
+}
+
+func (ev *Evaluator) Call(fn string) {
+	ev.emit(Event{Kind: "call", Name: fn})
+	if fn == "foo" {
+		ev.emit(Event{Kind: "error", Name: "identifier not found: foo"})
+	}
+}
+
+type Tracer struct{}
+
+func (Tracer) OnEvent(e Event) { fmt.Printf("[trace] %-5s %s\n", e.Kind, e.Name) }
+
+type Profiler struct{ calls map[string]int }
+
+func (p *Profiler) OnEvent(e Event) {
+	if e.Kind == "call" {
+		p.calls[e.Name]++
+	}
+}
+
+func main() {
+	ev := &amp;Evaluator{}
+	prof := &amp;Profiler{calls: map[string]int{}}
+	ev.Subscribe(Tracer{})
+	ev.Subscribe(prof)
+
+	for _, f := range []string{"fib", "fib", "len", "foo"} {
+		ev.Call(f)
+	}
+	fmt.Println("perfil:", prof.calls)
+}</code></pre>
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header"><span>$ go run ./patrones/observer</span></div>
+<pre><code class="language-plaintext" data-out="ejemplos/patrones/observer">[trace] call  fib
+[trace] call  fib
+[trace] call  len
+[trace] call  foo
+[trace] error identifier not found: foo
+perfil: map[fib:2 foo:1 len:1]</code></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="p-state" class="section slide" data-pattern="state">
+            <h2>9. State</h2>
+            <div class="pat-meta">
+                <span class="meta-pill">Comportamiento</span>
+                <span class="meta-pill"><span data-icon="code"></span><code>ejemplos/patrones/state</code></span>
+                <a class="meta-pill" href="https://refactoring.guru/es/design-patterns/catalog" target="_blank" rel="noopener"><span data-icon="link"></span>Catálogo de referencia</a>
+            </div>
+            <div class="grid-2">
+                <div>
+                    <div class="card card-primary">
+                        <h3 style="color: var(--primary);">Intención</h3>
+                        <p>Permitir que un objeto cambie su comportamiento cuando cambia su estado interno.</p>
+                        <h4>Problema en ZeldaInterpreter</h4>
+                        <p>Un escáner se comporta distinto dentro de un string, de un comentario o en modo normal.</p>
+                    </div>
+                    <div class="grid-2">
+                        <div class="card card-success"><h3 style="color: var(--success);">Úsalo cuando…</h3><p>Máquinas de estados: lexers, protocolos, flujos de interfaz.</p></div>
+                        <div class="card card-warning"><h3 style="color: var(--warning);">Evítalo si…</h3><p>Si solo hay dos estados y un <code>if</code> es suficiente.</p></div>
+                    </div>
+                    <div class="info-box"><strong>En Go:</strong> Una interfaz <code>State</code> o funciones de estado <code>type stateFn func(*Lexer) stateFn</code>.</div>
+                    <div class="tip-box"><strong>En el intérprete:</strong> Un lexer con modos (string, comentario). El REPL podría tener modo normal y modo multilínea.</div>
+                </div>
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>ejemplos/patrones/state/main.go</span></div>
+<pre><code class="language-go" data-src="ejemplos/patrones/state/main.go">// State: un objeto cambia su comportamiento cuando cambia su estado interno.
+// Ejemplo: un escáner con modos Normal / DentroDeString / DentroDeComentario.
+package main
+
+import "fmt"
+
+type State interface {
+	Read(s *Scanner, ch byte)
+}
+
+type Scanner struct {
+	state  State
+	tokens []string
+	buf    []byte
+}
+
+type normal struct{}
+type inString struct{}
+type inComment struct{}
+
+func (normal) Read(s *Scanner, ch byte) {
+	switch ch {
+	case '"':
+		s.state = inString{}
+	case '#':
+		s.state = inComment{}
+	case ' ', '\n':
+		// ignorar espacios
+	default:
+		s.tokens = append(s.tokens, string(ch))
+	}
+}
+
+func (inString) Read(s *Scanner, ch byte) {
+	if ch == '"' {
+		s.tokens = append(s.tokens, "STRING("+string(s.buf)+")")
+		s.buf = nil
+		s.state = normal{}
+		return
+	}
+	s.buf = append(s.buf, ch)
+}
+
+func (inComment) Read(s *Scanner, ch byte) {
+	if ch == '\n' {
+		s.state = normal{}
+	}
+}
+
+func main() {
+	s := &amp;Scanner{state: normal{}}
+	src := "x+\"hola mundo\" # esto es un comentario\ny"
+	for i := 0; i &lt; len(src); i++ {
+		s.state.Read(s, src[i]) // el comportamiento depende del estado actual
+	}
+	fmt.Println(s.tokens)
+}</code></pre>
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header"><span>$ go run ./patrones/state</span></div>
+<pre><code class="language-plaintext" data-out="ejemplos/patrones/state">[x + STRING(hola mundo) y]</code></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="p-strategy" class="section slide" data-pattern="strategy">
+            <h2>10. Strategy</h2>
+            <div class="pat-meta">
+                <span class="meta-pill">Comportamiento</span>
+                <span class="meta-pill"><span data-icon="code"></span><code>ejemplos/patrones/strategy</code></span>
+                <a class="meta-pill" href="https://refactoring.guru/es/design-patterns/catalog" target="_blank" rel="noopener"><span data-icon="link"></span>Catálogo de referencia</a>
+            </div>
+            <div class="grid-2">
+                <div>
+                    <div class="card card-primary">
+                        <h3 style="color: var(--primary);">Intención</h3>
+                        <p>Definir una familia de algoritmos intercambiables detrás de una misma interfaz.</p>
+                        <h4>Problema en ZeldaInterpreter</h4>
+                        <p>Cada operador o tipo de token necesita su propio algoritmo, y queremos agregar nuevos sin tocar el núcleo.</p>
+                    </div>
+                    <div class="grid-2">
+                        <div class="card card-success"><h3 style="color: var(--success);">Úsalo cuando…</h3><p>Algoritmos que varían según el contexto y se eligen en tiempo de ejecución.</p></div>
+                        <div class="card card-warning"><h3 style="color: var(--warning);">Evítalo si…</h3><p>Si hay un solo algoritmo y no se espera que cambie.</p></div>
+                    </div>
+                    <div class="info-box"><strong>En Go:</strong> Tipos función guardados en un <code>map</code>; o una interfaz si la estrategia tiene estado.</div>
+                    <div class="tip-box"><strong>En el intérprete:</strong> ¡El Pratt parser! <code>prefixParseFns</code> e <code>infixParseFns</code> son mapas de estrategias por token (Semana 5).</div>
+                </div>
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>ejemplos/patrones/strategy/main.go</span></div>
+<pre><code class="language-go" data-src="ejemplos/patrones/strategy/main.go">// Strategy: una familia de algoritmos intercambiables detrás de una misma interfaz.
+// El Pratt parser lo usa: cada token tiene su "estrategia" de parsing (prefixParseFns).
+package main
+
+import (
+	"errors"
+	"fmt"
+)
+
+// Estrategia como tipo función (la forma más idiomática en Go).
+type BinaryOp func(a, b int64) (int64, error)
+
+var operators = map[string]BinaryOp{
+	"+": func(a, b int64) (int64, error) { return a + b, nil },
+	"-": func(a, b int64) (int64, error) { return a - b, nil },
+	"*": func(a, b int64) (int64, error) { return a * b, nil },
+	"/": func(a, b int64) (int64, error) {
+		if b == 0 {
+			return 0, errors.New("division by zero")
+		}
+		return a / b, nil
+	},
+}
+
+func evalInfix(op string, a, b int64) (int64, error) {
+	strategy, ok := operators[op]
+	if !ok {
+		return 0, fmt.Errorf("unknown operator: INTEGER %s INTEGER", op)
+	}
+	return strategy(a, b)
+}
+
+// Estrategia como interfaz: motores de ejecución intercambiables.
+type Engine interface{ Name() string }
+type TreeWalker struct{}
+type BytecodeVM struct{}
+
+func (TreeWalker) Name() string { return "tree-walking (este curso)" }
+func (BytecodeVM) Name() string { return "bytecode + VM (la secuela del libro)" }
+
+func main() {
+	for _, op := range []string{"+", "*", "/", "%"} {
+		v, err := evalInfix(op, 12, 0)
+		if err != nil {
+			fmt.Printf("12 %s 0 -&gt; ERROR: %v\n", op, err)
+			continue
+		}
+		fmt.Printf("12 %s 0 -&gt; %d\n", op, v)
+	}
+	for _, e := range []Engine{TreeWalker{}, BytecodeVM{}} {
+		fmt.Println("motor:", e.Name())
+	}
+}</code></pre>
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header"><span>$ go run ./patrones/strategy</span></div>
+<pre><code class="language-plaintext" data-out="ejemplos/patrones/strategy">12 + 0 -&gt; 12
+12 * 0 -&gt; 0
+12 / 0 -&gt; ERROR: division by zero
+12 % 0 -&gt; ERROR: unknown operator: INTEGER % INTEGER
+motor: tree-walking (este curso)
+motor: bytecode + VM (la secuela del libro)</code></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="p-template-method" class="section slide" data-pattern="template-method">
+            <h2>11. Template Method</h2>
+            <div class="pat-meta">
+                <span class="meta-pill">Comportamiento</span>
+                <span class="meta-pill"><span data-icon="code"></span><code>ejemplos/patrones/template-method</code></span>
+                <a class="meta-pill" href="https://refactoring.guru/es/design-patterns/catalog" target="_blank" rel="noopener"><span data-icon="link"></span>Catálogo de referencia</a>
+            </div>
+            <div class="grid-2">
+                <div>
+                    <div class="card card-primary">
+                        <h3 style="color: var(--primary);">Intención</h3>
+                        <p>Fijar el esqueleto de un algoritmo y dejar que ciertos pasos los implementen otros.</p>
+                        <h4>Problema en ZeldaInterpreter</h4>
+                        <p>Todo intérprete sigue tokenizar → validar → ejecutar, pero cada lenguaje lo hace distinto.</p>
+                    </div>
+                    <div class="grid-2">
+                        <div class="card card-success"><h3 style="color: var(--success);">Úsalo cuando…</h3><p>Algoritmos con pasos fijos y puntos de extensión bien definidos.</p></div>
+                        <div class="card card-warning"><h3 style="color: var(--warning);">Evítalo si…</h3><p>Si los pasos cambian de orden según el caso.</p></div>
+                    </div>
+                    <div class="info-box"><strong>En Go:</strong> Sin clases abstractas: una función que recibe una interfaz con los pasos.</div>
+                    <div class="tip-box"><strong>En el intérprete:</strong> El pipeline lexer → parser → evaluador; también el patrón de pruebas <em>table-driven</em> (mismo esqueleto, distintos casos).</div>
+                </div>
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>ejemplos/patrones/template-method/main.go</span></div>
+<pre><code class="language-go" data-src="ejemplos/patrones/template-method/main.go">// Template Method: el esqueleto de un algoritmo queda fijo y los pasos variables se delegan.
+// En Go no hay clases abstractas: el esqueleto es una función y los pasos, una interfaz.
+package main
+
+import (
+	"fmt"
+	"strings"
+)
+
+// Language define los pasos que cada lenguaje debe proveer.
+type Language interface {
+	Tokenize(src string) []string
+	Validate(tokens []string) error
+	Execute(tokens []string) string
+}
+
+// Run es el método plantilla: el orden de los pasos nunca cambia.
+func Run(lang Language, src string) string {
+	toks := lang.Tokenize(src)
+	if err := lang.Validate(toks); err != nil {
+		return "error: " + err.Error()
+	}
+	return lang.Execute(toks)
+}
+
+type Calc struct{}
+
+func (Calc) Tokenize(s string) []string { return strings.Fields(s) }
+func (Calc) Validate(t []string) error {
+	if len(t)%2 == 0 {
+		return fmt.Errorf("expresión incompleta: %v", t)
+	}
+	return nil
+}
+func (Calc) Execute(t []string) string { return "calculando " + strings.Join(t, "") }
+
+type Shout struct{}
+
+func (Shout) Tokenize(s string) []string { return strings.Split(s, "") }
+func (Shout) Validate([]string) error    { return nil }
+func (Shout) Execute(t []string) string  { return strings.ToUpper(strings.Join(t, "")) }
+
+func main() {
+	fmt.Println(Run(Calc{}, "1 + 2"))
+	fmt.Println(Run(Calc{}, "1 +"))
+	fmt.Println(Run(Shout{}, "monkey"))
+}</code></pre>
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header"><span>$ go run ./patrones/template-method</span></div>
+<pre><code class="language-plaintext" data-out="ejemplos/patrones/template-method">calculando 1+2
+error: expresión incompleta: [1 +]
+MONKEY</code></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="p-visitor" class="section slide" data-pattern="visitor">
+            <h2>12. Visitor</h2>
+            <div class="pat-meta">
+                <span class="meta-pill">Comportamiento</span>
+                <span class="meta-pill"><span data-icon="code"></span><code>ejemplos/patrones/visitor</code></span>
+                <a class="meta-pill" href="https://refactoring.guru/es/design-patterns/catalog" target="_blank" rel="noopener"><span data-icon="link"></span>Catálogo de referencia</a>
+            </div>
+            <div class="grid-2">
+                <div>
+                    <div class="card card-primary">
+                        <h3 style="color: var(--primary);">Intención</h3>
+                        <p>Agregar operaciones nuevas a una jerarquía de tipos sin modificar esos tipos.</p>
+                        <h4>Problema en ZeldaInterpreter</h4>
+                        <p>Sobre el mismo AST queremos evaluar, imprimir, contar nodos, verificar tipos… sin llenar cada nodo de métodos.</p>
+                    </div>
+                    <div class="grid-2">
+                        <div class="card card-success"><h3 style="color: var(--success);">Úsalo cuando…</h3><p>Estructuras estables (como un AST) con muchas operaciones distintas.</p></div>
+                        <div class="card card-warning"><h3 style="color: var(--warning);">Evítalo si…</h3><p>Si se agregan tipos de nodo con frecuencia: cada visitor debe actualizarse.</p></div>
+                    </div>
+                    <div class="info-box"><strong>En Go:</strong> Métodos <code>Accept(v Visitor)</code> en cada nodo; en Go el <em>type switch</em> suele ser más simple.</div>
+                    <div class="tip-box"><strong>En el intérprete:</strong> Alternativa al <code>switch node := node.(type)</code> de <code>Eval</code>; compiladores reales usan visitors para varias pasadas.</div>
+                </div>
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>ejemplos/patrones/visitor/main.go</span></div>
+<pre><code class="language-go" data-src="ejemplos/patrones/visitor/main.go">// Visitor: agregar operaciones nuevas a una jerarquía de nodos SIN modificar los nodos.
+// El libro usa un type switch en Eval; el Visitor es la alternativa clásica de POO.
+package main
+
+import (
+	"fmt"
+	"strconv"
+)
+
+type Visitor interface {
+	VisitInt(n *IntLit) any
+	VisitInfix(n *Infix) any
+}
+
+type Node interface{ Accept(v Visitor) any }
+
+type IntLit struct{ Value int }
+
+type Infix struct {
+	Left  Node
+	Op    string
+	Right Node
+}
+
+func (n *IntLit) Accept(v Visitor) any { return v.VisitInt(n) }
+func (n *Infix) Accept(v Visitor) any  { return v.VisitInfix(n) }
+
+// Operación 1: evaluar.
+type Evaluator struct{}
+
+func (Evaluator) VisitInt(n *IntLit) any { return n.Value }
+func (e Evaluator) VisitInfix(n *Infix) any {
+	l, r := n.Left.Accept(e).(int), n.Right.Accept(e).(int)
+	switch n.Op {
+	case "+":
+		return l + r
+	case "*":
+		return l * r
+	}
+	return 0
+}
+
+// Operación 2: imprimir. Es nueva y no requirió tocar IntLit ni Infix.
+type Printer struct{}
+
+func (Printer) VisitInt(n *IntLit) any { return strconv.Itoa(n.Value) }
+func (p Printer) VisitInfix(n *Infix) any {
+	return "(" + n.Left.Accept(p).(string) + " " + n.Op + " " + n.Right.Accept(p).(string) + ")"
+}
+
+func main() {
+	ast := &amp;Infix{Left: &amp;IntLit{1}, Op: "+", Right: &amp;Infix{Left: &amp;IntLit{2}, Op: "*", Right: &amp;IntLit{3}}}
+	fmt.Println(ast.Accept(Printer{}), "=", ast.Accept(Evaluator{}))
+}</code></pre>
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header"><span>$ go run ./patrones/visitor</span></div>
+<pre><code class="language-plaintext" data-out="ejemplos/patrones/visitor">(1 + (2 * 3)) = 7</code></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="comparativa" class="section slide">
+            <h2>13. Comparativa rápida</h2>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Patrón</th><th>Intención</th><th>En ZeldaInterpreter</th></tr></thead>
+                    <tbody><tr><td><a href="#p-chain-of-responsibility">Chain of Responsibility</a></td><td>Pasar una petición por una cadena de manejadores; cada uno decide si la atiende o la pasa al siguiente.</td><td>Comandos del REPL y, en general, cualquier cadena de <em>middlewares</em>.</td></tr><tr><td><a href="#p-command">Command</a></td><td>Encapsular una petición como un objeto para guardarla, encolarla, deshacerla o rehacerla.</td><td>Historial del REPL; la secuela del libro compila a instrucciones (<em>opcodes</em>) que son comandos.</td></tr><tr><td><a href="#p-iterator">Iterator</a></td><td>Recorrer los elementos de una colección sin exponer su estructura interna.</td><td>¡El lexer! <code>NextToken()</code> es un iterador; con Go 1.23 puede exponerse como <code>iter.Seq[Token]</code>.</td></tr><tr><td><a href="#p-mediator">Mediator</a></td><td>Centralizar la comunicación entre componentes para que no dependan unos de otros directamente.</td><td>Una “mini IDE” web para Monkey que coordina editor, salida y errores (como el simulador del curso).</td></tr><tr><td><a href="#p-memento">Memento</a></td><td>Capturar y restaurar el estado interno de un objeto sin exponer sus detalles.</td><td>Guardar el <code>Environment</code> antes de evaluar y restaurarlo si aparece un <code>*object.Error</code>.</td></tr><tr><td><a href="#p-observer">Observer</a></td><td>Notificar automáticamente a varios suscriptores cuando ocurre un evento.</td><td>Eventos <code>call</code>/<code>error</code> del evaluador para depurar programas Monkey.</td></tr><tr><td><a href="#p-state">State</a></td><td>Permitir que un objeto cambie su comportamiento cuando cambia su estado interno.</td><td>Un lexer con modos (string, comentario). El REPL podría tener modo normal y modo multilínea.</td></tr><tr><td><a href="#p-strategy">Strategy</a></td><td>Definir una familia de algoritmos intercambiables detrás de una misma interfaz.</td><td>¡El Pratt parser! <code>prefixParseFns</code> e <code>infixParseFns</code> son mapas de estrategias por token (Semana 5).</td></tr><tr><td><a href="#p-template-method">Template Method</a></td><td>Fijar el esqueleto de un algoritmo y dejar que ciertos pasos los implementen otros.</td><td>El pipeline lexer → parser → evaluador; también el patrón de pruebas <em>table-driven</em> (mismo esqueleto, distintos casos).</td></tr><tr><td><a href="#p-visitor">Visitor</a></td><td>Agregar operaciones nuevas a una jerarquía de tipos sin modificar esos tipos.</td><td>Alternativa al <code>switch node := node.(type)</code> de <code>Eval</code>; compiladores reales usan visitors para varias pasadas.</td></tr></tbody>
+                </table>
+            </div>
+            <div class="warn-box"><strong>Cuidado con la “patronitis”:</strong> un patrón agrega indirección. Úsalo cuando el problema que resuelve ya existe, no por si acaso. En Go, la solución más simple (una función, un <code>map</code>, una interfaz de un método) suele ser la correcta.</div>
+        </section>
+
+        <section id="simulador-zelda" class="section slide">
+            <h2>Simulador ZeldaInterpreter</h2>
+            <p>La pestaña <strong>Tokens</strong> es un <strong>Iterator</strong> en acción; la pestaña <strong>AST</strong> muestra el resultado de las <strong>Strategies</strong> del Pratt parser; y la pestaña <strong>Evaluación</strong> recorre el árbol como lo haría un <strong>Visitor</strong>.</p>
+            <div data-simulator data-stage="eval" data-code="let compose = fn(f, g) { fn(x) { f(g(x)) } };&#10;let inc = fn(x) { x + 1 };&#10;let dbl = fn(x) { x * 2 };&#10;compose(inc, dbl)(10);"></div>
+        </section>
+
+        <section id="resumen" class="section slide">
+            <h2>14. Ideas clave</h2>
+            <div class="key-ideas"><div class="key-idea"><h3>Chain of Responsibility</h3><p>Pasar una petición por una cadena de manejadores; cada uno decide si la atiende o la pasa al siguiente.</p></div><div class="key-idea"><h3>Command</h3><p>Encapsular una petición como un objeto para guardarla, encolarla, deshacerla o rehacerla.</p></div><div class="key-idea"><h3>Iterator</h3><p>Recorrer los elementos de una colección sin exponer su estructura interna.</p></div><div class="key-idea"><h3>Mediator</h3><p>Centralizar la comunicación entre componentes para que no dependan unos de otros directamente.</p></div><div class="key-idea"><h3>Memento</h3><p>Capturar y restaurar el estado interno de un objeto sin exponer sus detalles.</p></div><div class="key-idea"><h3>Observer</h3><p>Notificar automáticamente a varios suscriptores cuando ocurre un evento.</p></div></div>
+            <div class="tip-box"><strong>Regla de oro en Go:</strong> empieza por lo más simple (funciones e interfaces pequeñas) y reconoce el patrón cuando aparezca; no al revés.</div>
+        </section>
+
+        <section id="taller" class="section slide">
+            <h2>15. Taller — Go VI</h2>
+            <div class="card glass">
+                <h3><span data-icon="wrench"></span>Patrones aplicados a tu intérprete</h3>
+                <ol class="steps">
+                    <li>Ejecuta los 10 ejemplos y explica qué problema resuelve cada uno.</li>
+                    <li>Agrega a tu REPL una <strong>Chain of Responsibility</strong> con <code>:help</code>, <code>:env</code> y <code>:quit</code>.</li>
+                    <li>Implementa <code>:undo</code> con <strong>Command</strong> o con <strong>Memento</strong> y justifica cuál elegiste.</li>
+                    <li>Escribe un <strong>Visitor</strong> que cuente los nodos de tu AST real y compáralo con un <em>type switch</em>.</li>
+                </ol>
+            </div>
+            <div class="exercise-cta">
+                <div>
+                    <h3>Guía de ejercicios · Go VI</h3>
+                    <p>Identificar patrones, elegir el adecuado para un problema y aplicarlos en Go.</p>
+                </div>
+                <a class="btn-download" data-pdf-link href="#"><span data-icon="file-down"></span>Descargar PDF</a>
+            </div>
+        </section>
+
+        <nav class="class-footer-nav" data-course-footer aria-label="Navegación entre clases"></nav>
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/go.min.js"></script>
+    <script src="../assets/course.js"></script>
+    <script src="../assets/presentation.js"></script>
+    <script src="../assets/monkey.js"></script>
+    <script src="../assets/simulator.js"></script>
+    <script src="../assets/patrones.js"></script>
+</body>
+</html>

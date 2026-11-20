@@ -1,0 +1,6 @@
+12 + 0 -> 12
+12 * 0 -> 0
+12 / 0 -> ERROR: division by zero
+12 % 0 -> ERROR: unknown operator: INTEGER % INTEGER
+motor: tree-walking (este curso)
+motor: bytecode + VM (la secuela del libro)

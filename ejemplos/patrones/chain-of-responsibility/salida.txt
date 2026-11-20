@@ -1,0 +1,4 @@
+""       -> (nada que evaluar)
+":help"  -> comandos: :help :env
+":env"   -> x = 5
+"1 + 2"  -> evaluando: 1 + 2

@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Semana 4: AST y Sentencias (Cap. 2.1–2.5) | ZeldaInterpreter · Lenguajes y Compiladores 2027-1</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css">
+    <link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body data-week="4">
+    <a class="skip-link" href="#contenido">Saltar al contenido</a>
+
+    <aside class="sidebar">
+        <div class="logo">
+            <a href="../index.html">
+                <h1 class="brand"><span class="brand-logo" data-logo="56"></span><span class="brand-name">ZeldaInterpreter</span></h1><p class="logo-subtitle">Semana 04 · Capítulo 2A</p>
+            </a>
+        </div>
+
+        <a href="../index.html" class="back-link"><span data-icon="home"></span>Portal del Curso</a>
+
+        <button type="button" class="present-btn" id="toggle-slides-btn" aria-pressed="false">
+            <span data-icon="presentation"></span>Modo Presentación <kbd>P</kbd>
+        </button>
+        <a class="pdf-btn" data-pdf-link href="#"><span data-icon="file-down"></span>Ejercicios de la semana (PDF)</a>
+
+        <nav>
+            <div class="nav-group-title">Contenido de la Clase</div>
+            <ul>
+                <li><a href="#portada" class="active">Portada y objetivos</a></li>
+                <li><a href="#que-es-parser">1. ¿Qué es un Parser?</a></li>
+                <li><a href="#por-que-a-mano">2. ¿Por qué escribirlo a mano?</a></li>
+                <li><a href="#anatomia-let">3. Sentencias vs Expresiones</a></li>
+                <li><a href="#paquete-ast">4. El paquete ast</a></li>
+                <li><a href="#nodos-let">5. LetStatement e Identifier</a></li>
+                <li><a href="#struct-parser">6. El struct Parser</a></li>
+                <li><a href="#parse-let">7. parseLetStatement y expectPeek</a></li>
+                <li><a href="#test-let">8. Pruebas: TestLetStatements</a></li>
+                <li><a href="#errores">9. Recolección de errores</a></li>
+                <li><a href="#return">10. Sentencias return</a></li>
+                <li><a href="#simulador">11. Simulador paso a paso</a></li>
+                <li><a href="#correr">Córrelo en ZeldaInterpreter</a></li>
+                <li><a href="#simulador-zelda">Simulador ZeldaInterpreter</a></li>
+                <li><a href="#resumen">12. Ideas clave</a></li>
+                <li><a href="#taller">13. Taller de la Semana 4</a></li>
+            </ul>
+            <div data-course-nav></div>
+        </nav>
+
+        <div class="sidebar-footer">
+            Semana 4 de 8 · Cap. 2.1–2.5 (pp. 28–45)
+        </div>
+    </aside>
+
+    <main class="content" id="contenido">
+
+        <!-- ==================== PORTADA ==================== -->
+        <header id="portada" class="hero slide">
+            <div class="hero-badge"><span data-icon="tree"></span>Semana 04 · Bloque II · Capítulo 2 (Parte A)</div>
+            <h1>Análisis Sintáctico I: <span class="gradient-text">AST y Sentencias</span></h1>
+            <p>El Lexer nos entrega una lista plana de tokens. Hoy construimos la estructura que les da <strong>forma</strong>: el <strong>Árbol de Sintaxis Abstracta</strong> y un parser recursivo descendente capaz de reconocer sentencias <code>let</code> y <code>return</code>.</p>
+            <div class="hero-meta">
+                <span class="meta-pill"><span data-icon="book"></span>Libro: Cap. 2.1 – 2.5 (pp. 28–45)</span>
+                <span class="meta-pill"><span data-icon="folder"></span>Paquetes: <code>ast</code>, <code>parser</code></span>
+                <span class="meta-pill"><span data-icon="flask"></span>Simulador de <code>expectPeek</code></span>
+            </div>
+            <div class="objectives" aria-label="Objetivos de la clase">
+                <div class="objective"><span class="num">1</span><span>Explicar qué produce un parser y qué hace “abstracto” a un AST.</span></div>
+                <div class="objective"><span class="num">2</span><span>Diseñar las interfaces <code>Node</code>, <code>Statement</code> y <code>Expression</code>.</span></div>
+                <div class="objective"><span class="num">3</span><span>Implementar <code>parseLetStatement</code> y <code>parseReturnStatement</code> con TDD.</span></div>
+                <div class="objective"><span class="num">4</span><span>Reportar errores de sintaxis útiles en lugar de fallar en silencio.</span></div>
+            </div>
+        </header>
+
+        <!-- ==================== 1. QUÉ ES UN PARSER ==================== -->
+        <section id="que-es-parser" class="section slide">
+            <h2>1. ¿Qué es un Parser?</h2>
+            <p>Un parser toma datos de entrada (normalmente texto o tokens) y construye una <strong>estructura de datos jerárquica</strong> que los representa, verificando la sintaxis en el proceso. Ya usaste uno sin notarlo:</p>
+
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>JavaScript · JSON.parse</span></div>
+<pre><code class="language-javascript">&gt; var input = '{"name": "Thorsten", "age": 28}';
+&gt; var output = JSON.parse(input);
+&gt; output.name
+'Thorsten'
+&gt; output.age
+28</code></pre>
+                </div>
+                <div class="card glass">
+                    <h3>Texto → estructura</h3>
+                    <p>La entrada es solo un <code>string</code>. La salida es un objeto con campos navegables. Un parser de un lenguaje de programación hace lo mismo, pero la estructura resultante es un <strong>árbol</strong>.</p>
+                    <p>En Monkey: <strong>tokens → <code>*ast.Program</code></strong>.</p>
+                </div>
+            </div>
+
+            <h3>¿Por qué “abstracto”?</h3>
+            <p>Detalles como el punto y coma, los saltos de línea, los comentarios o los paréntesis <strong>guían</strong> al parser, pero no se guardan en el árbol. El AST conserva solo lo que importa para evaluar el programa.</p>
+
+            <div class="ast-tree" role="img" aria-label="AST de la expresión if (3 * 5 > 10) con return hello y else return goodbye">
+                <ul>
+                    <li><span class="ast-node"><b>IfExpression</b></span>
+                        <ul>
+                            <li><span class="ast-node op"><b>Infix</b><i>&gt;</i></span>
+                                <ul>
+                                    <li><span class="ast-node op"><b>Infix</b><i>*</i></span>
+                                        <ul>
+                                            <li><span class="ast-node lit"><b>Integer</b><i>3</i></span></li>
+                                            <li><span class="ast-node lit"><b>Integer</b><i>5</i></span></li>
+                                        </ul>
+                                    </li>
+                                    <li><span class="ast-node lit"><b>Integer</b><i>10</i></span></li>
+                                </ul>
+                            </li>
+                            <li><span class="ast-node stmt"><b>Return</b><i>consequence</i></span>
+                                <ul><li><span class="ast-node lit"><b>String</b><i>"hello"</i></span></li></ul>
+                            </li>
+                            <li><span class="ast-node stmt"><b>Return</b><i>alternative</i></span>
+                                <ul><li><span class="ast-node lit"><b>String</b><i>"goodbye"</i></span></li></ul>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+            <p style="text-align:center;font-size:0.85rem;">AST de <code>if (3 * 5 &gt; 10) { return "hello"; } else { return "goodbye"; }</code> — los paréntesis y llaves ya no aparecen.</p>
+        </section>
+
+        <!-- ==================== 2. POR QUÉ A MANO ==================== -->
+        <section id="por-que-a-mano" class="section slide">
+            <h2>2. ¿Por qué no usar un generador de parsers?</h2>
+            <p>Herramientas como <strong>yacc</strong>, <strong>bison</strong> o <strong>ANTLR</strong> reciben una gramática formal (usualmente una <em>gramática libre de contexto</em> escrita en <strong>BNF/EBNF</strong>) y generan el código del parser automáticamente.</p>
+
+            <div class="grid-2">
+                <div class="card card-warning">
+                    <h3 style="color: var(--warning);">Generadores de parsers</h3>
+                    <ul class="feature-list">
+                        <li>Muy usados en producción y bien probados.</li>
+                        <li>Escribes la gramática, no el algoritmo.</li>
+                        <li>Pero esconden <em>cómo</em> funciona el parsing.</li>
+                    </ul>
+                    <div class="code-block">
+                        <div class="code-header"><span>EBNF (fragmento de ECMAScript)</span></div>
+<pre><code class="language-plaintext">PrimaryExpression ::= "this"
+                    | ObjectLiteral
+                    | ( "(" Expression ")" )
+                    | Identifier
+                    | ArrayLiteral
+                    | Literal</code></pre>
+                    </div>
+                </div>
+                <div class="card card-primary">
+                    <h3 style="color: var(--primary);">Parser escrito a mano (nuestra ruta)</h3>
+                    <ul class="feature-list">
+                        <li>El objetivo del curso es <strong>entender</strong>, no solo usar.</li>
+                        <li>Muchos parsers reales se escriben a mano (Go, GCC, Clang, V8).</li>
+                        <li>Escribiremos un <strong>parser recursivo descendente</strong> (<em>top-down</em>).</li>
+                        <li>Para expresiones: <strong>Pratt parser</strong> (<em>Top Down Operator Precedence</em>), la próxima semana.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="info-box">
+                <strong>Top-down vs bottom-up:</strong> un parser <em>top-down</em> empieza construyendo el nodo raíz y desciende hacia las hojas. Un parser <em>bottom-up</em> (como los LR que generan yacc/bison) hace lo contrario. El recursivo descendente es el más intuitivo porque refleja directamente cómo pensamos la gramática.
+            </div>
+        </section>
+
+        <!-- ==================== 3. ANATOMÍA LET ==================== -->
+        <section id="anatomia-let" class="section slide">
+            <h2>3. Sentencias vs Expresiones en Monkey</h2>
+            <div class="grid-2">
+                <div class="card card-accent">
+                    <h3 style="color: var(--accent);">Sentencias (<em>statements</em>)</h3>
+                    <p><strong>No producen</strong> un valor. Monkey tiene solo dos: <code>let</code> y <code>return</code>.</p>
+<pre><code class="language-javascript">let x = 5;
+return 10;</code></pre>
+                </div>
+                <div class="card card-success">
+                    <h3 style="color: var(--success);">Expresiones (<em>expressions</em>)</h3>
+                    <p><strong>Sí producen</strong> un valor. En Monkey casi todo es una expresión, ¡incluso las funciones!</p>
+<pre><code class="language-javascript">5
+add(5, 5)
+fn(x, y) { x + y }</code></pre>
+                </div>
+            </div>
+
+            <h3>Anatomía de una sentencia <code>let</code></h3>
+            <div class="code-block">
+                <div class="code-header"><span>Forma general</span></div>
+<pre><code class="language-plaintext">let &lt;identificador&gt; = &lt;expresión&gt;;</code></pre>
+            </div>
+            <p>Necesitamos un nodo con tres piezas: el token <code>let</code>, el <strong>nombre</strong> (un identificador) y el <strong>valor</strong> (una expresión). Así se ve <code>let x = 5;</code> dentro del programa:</p>
+
+            <div class="ast-tree" role="img" aria-label="AST de let x = 5: Program contiene LetStatement con Name Identifier x y Value Integer 5">
+                <ul>
+                    <li><span class="ast-node"><b>*ast.Program</b><i>Statements[0]</i></span>
+                        <ul>
+                            <li><span class="ast-node stmt"><b>*ast.LetStatement</b><i>Token: LET</i></span>
+                                <ul>
+                                    <li><span class="ast-node lit"><b>Name: *ast.Identifier</b><i>"x"</i></span></li>
+                                    <li><span class="ast-node lit"><b>Value: ast.Expression</b><i>5</i></span></li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="analogy-box">
+                <strong>Pregunta para la clase:</strong> ¿por qué el identificador <code>x</code> en <code>let x = 5;</code> se modela como <code>*ast.Identifier</code> (una expresión) si allí no produce ningún valor? <em>Respuesta del libro: por simplicidad — en otras partes del programa (<code>let y = x;</code>) el mismo identificador sí produce un valor, y así reutilizamos un solo tipo de nodo.</em>
+            </div>
+        </section>
+
+        <!-- ==================== 4. PAQUETE AST ==================== -->
+        <section id="paquete-ast" class="section slide">
+            <h2>4. El paquete <code>ast</code>: interfaces base</h2>
+            <p>Todo nodo del árbol implementa <code>Node</code>. Los nodos se dividen en dos familias que separamos con <strong>métodos “marcadores”</strong> vacíos para que el compilador de Go nos avise si usamos uno donde va el otro.</p>
+
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>ast/ast.go</span></div>
+<pre><code class="language-go">package ast
+
+import "monkey/token"
+
+type Node interface {
+    TokenLiteral() string
+}
+
+type Statement interface {
+    Node
+    statementNode()
+}
+
+type Expression interface {
+    Node
+    expressionNode()
+}</code></pre>
+                </div>
+                <div class="code-block">
+                    <div class="code-header"><span>ast/ast.go — nodo raíz</span></div>
+<pre><code class="language-go">type Program struct {
+    Statements []Statement
+}
+
+func (p *Program) TokenLiteral() string {
+    if len(p.Statements) &gt; 0 {
+        return p.Statements[0].TokenLiteral()
+    } else {
+        return ""
+    }
+}</code></pre>
+                </div>
+            </div>
+
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Pieza</th><th>Para qué sirve</th></tr></thead>
+                    <tbody>
+                        <tr><td><code>TokenLiteral()</code></td><td>Devuelve el literal del token asociado al nodo. Solo se usa para depurar y en las pruebas.</td></tr>
+                        <tr><td><code>statementNode()</code> / <code>expressionNode()</code></td><td>Métodos vacíos “marca”: hacen que <code>Statement</code> y <code>Expression</code> sean interfaces distintas.</td></tr>
+                        <tr><td><code>Program</code></td><td>Raíz de todo AST. Un programa Monkey válido es una <strong>serie de sentencias</strong>.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ==================== 5. NODOS LET ==================== -->
+        <section id="nodos-let" class="section slide">
+            <h2>5. Nodos <code>LetStatement</code> e <code>Identifier</code></h2>
+            <div class="code-block">
+                <div class="code-header"><span>ast/ast.go</span></div>
+<pre><code class="language-go">type LetStatement struct {
+    Token token.Token // el token token.LET
+    Name  *Identifier
+    Value Expression
+}
+
+func (ls *LetStatement) statementNode()       {}
+func (ls *LetStatement) TokenLiteral() string { return ls.Token.Literal }
+
+type Identifier struct {
+    Token token.Token // el token token.IDENT
+    Value string
+}
+
+func (i *Identifier) expressionNode()      {}
+func (i *Identifier) TokenLiteral() string { return i.Token.Literal }</code></pre>
+            </div>
+            <div class="tip-box">
+                <strong>Conexión con la Semana 2:</strong> aquí usamos exactamente los patrones que practicamos: <em>structs</em> con punteros a otros nodos, <em>interfaces implícitas</em> (nadie escribe “implements”) y métodos con <em>pointer receiver</em>.
+            </div>
+        </section>
+
+        <!-- ==================== 6. STRUCT PARSER ==================== -->
+        <section id="struct-parser" class="section slide">
+            <h2>6. El struct <code>Parser</code>: una ventana de dos tokens</h2>
+            <p>El parser se parece mucho al Lexer: en vez de <code>position</code>/<code>readPosition</code> sobre caracteres, mantiene <code>curToken</code> y <code>peekToken</code> sobre tokens.</p>
+
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>parser/parser.go</span></div>
+<pre><code class="language-go">package parser
+
+import (
+    "monkey/ast"
+    "monkey/lexer"
+    "monkey/token"
+)
+
+type Parser struct {
+    l *lexer.Lexer
+
+    curToken  token.Token
+    peekToken token.Token
+}
+
+func New(l *lexer.Lexer) *Parser {
+    p := &amp;Parser{l: l}
+
+    // Lee dos tokens para que curToken
+    // y peekToken queden inicializados
+    p.nextToken()
+    p.nextToken()
+
+    return p
+}
+
+func (p *Parser) nextToken() {
+    p.curToken = p.peekToken
+    p.peekToken = p.l.NextToken()
+}</code></pre>
+                </div>
+                <div>
+                    <div class="card glass">
+                        <h3>¿Por qué necesitamos <code>peekToken</code>?</h3>
+                        <p>Con <code>curToken</code> sabemos <em>dónde estamos</em>; con <code>peekToken</code> decidimos <em>qué hacer después</em>.</p>
+                        <p>Ejemplo: si <code>curToken</code> es <code>5</code>, ¿es un literal suelto o el inicio de <code>5 + 5</code>? Solo el siguiente token lo dice.</p>
+                    </div>
+                    <div class="info-box">
+                        <strong>Dos llamadas en <code>New</code>:</strong> la primera llena <code>peekToken</code>; la segunda desplaza ese valor a <code>curToken</code> y vuelve a llenar <code>peekToken</code>.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 7. PARSE LET ==================== -->
+        <section id="parse-let" class="section slide">
+            <h2>7. <code>ParseProgram</code>, <code>parseLetStatement</code> y <code>expectPeek</code></h2>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>parser/parser.go</span></div>
+<pre><code class="language-go">func (p *Parser) ParseProgram() *ast.Program {
+    program := &amp;ast.Program{}
+    program.Statements = []ast.Statement{}
+
+    for p.curToken.Type != token.EOF {
+        stmt := p.parseStatement()
+        if stmt != nil {
+            program.Statements = append(program.Statements, stmt)
+        }
+        p.nextToken()
+    }
+    return program
+}
+
+func (p *Parser) parseStatement() ast.Statement {
+    switch p.curToken.Type {
+    case token.LET:
+        return p.parseLetStatement()
+    default:
+        return nil
+    }
+}</code></pre>
+                </div>
+                <div class="code-block">
+                    <div class="code-header"><span>parser/parser.go</span></div>
+<pre><code class="language-go">func (p *Parser) parseLetStatement() *ast.LetStatement {
+    stmt := &amp;ast.LetStatement{Token: p.curToken}
+
+    if !p.expectPeek(token.IDENT) {
+        return nil
+    }
+    stmt.Name = &amp;ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+
+    if !p.expectPeek(token.ASSIGN) {
+        return nil
+    }
+    // TODO: saltamos la expresión hasta
+    // encontrar un punto y coma
+    for !p.curTokenIs(token.SEMICOLON) {
+        p.nextToken()
+    }
+    return stmt
+}
+
+func (p *Parser) curTokenIs(t token.TokenType) bool {
+    return p.curToken.Type == t
+}
+func (p *Parser) peekTokenIs(t token.TokenType) bool {
+    return p.peekToken.Type == t
+}
+func (p *Parser) expectPeek(t token.TokenType) bool {
+    if p.peekTokenIs(t) {
+        p.nextToken()
+        return true
+    } else {
+        return false
+    }
+}</code></pre>
+                </div>
+            </div>
+            <div class="warn-box">
+                <strong><code>expectPeek</code> es una “aserción”:</strong> solo avanza si el siguiente token es el esperado. Así se impone el <strong>orden correcto</strong> de los tokens — este es el corazón de un parser recursivo descendente. Fíjate también en el <code>TODO</code>: las expresiones las parsearemos en la Semana 5.
+            </div>
+        </section>
+
+        <!-- ==================== 8. TEST LET ==================== -->
+        <section id="test-let" class="section slide">
+            <h2>8. Pruebas primero: <code>TestLetStatements</code></h2>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>parser/parser_test.go</span></div>
+<pre><code class="language-go">func TestLetStatements(t *testing.T) {
+    input := `
+let x = 5;
+let y = 10;
+let foobar = 838383;
+`
+    l := lexer.New(input)
+    p := New(l)
+
+    program := p.ParseProgram()
+    checkParserErrors(t, p)
+    if program == nil {
+        t.Fatalf("ParseProgram() returned nil")
+    }
+    if len(program.Statements) != 3 {
+        t.Fatalf("program.Statements does not contain 3 statements. got=%d",
+            len(program.Statements))
+    }
+
+    tests := []struct {
+        expectedIdentifier string
+    }{
+        {"x"}, {"y"}, {"foobar"},
+    }
+
+    for i, tt := range tests {
+        stmt := program.Statements[i]
+        if !testLetStatement(t, stmt, tt.expectedIdentifier) {
+            return
+        }
+    }
+}</code></pre>
+                </div>
+                <div class="code-block">
+                    <div class="code-header"><span>parser/parser_test.go — helper</span></div>
+<pre><code class="language-go">func testLetStatement(t *testing.T, s ast.Statement, name string) bool {
+    if s.TokenLiteral() != "let" {
+        t.Errorf("s.TokenLiteral not 'let'. got=%q", s.TokenLiteral())
+        return false
+    }
+
+    letStmt, ok := s.(*ast.LetStatement)
+    if !ok {
+        t.Errorf("s not *ast.LetStatement. got=%T", s)
+        return false
+    }
+
+    if letStmt.Name.Value != name {
+        t.Errorf("letStmt.Name.Value not '%s'. got=%s",
+            name, letStmt.Name.Value)
+        return false
+    }
+
+    if letStmt.Name.TokenLiteral() != name {
+        t.Errorf("letStmt.Name.TokenLiteral() not '%s'. got=%s",
+            name, letStmt.Name.TokenLiteral())
+        return false
+    }
+    return true
+}</code></pre>
+                </div>
+            </div>
+            <div class="tip-box">
+                <strong>Observa la <em>type assertion</em></strong> <code>s.(*ast.LetStatement)</code> que vimos en la Semana 2: convierte la interfaz <code>ast.Statement</code> a su tipo concreto y nos dice con <code>ok</code> si la conversión fue posible.
+            </div>
+        </section>
+
+        <!-- ==================== 9. ERRORES ==================== -->
+        <section id="errores" class="section slide">
+            <h2>9. Errores útiles: <code>errors</code>, <code>Errors()</code> y <code>peekError</code></h2>
+            <p>Si alguien escribe <code>let = 10;</code> el parser no debe fallar en silencio. Agregamos un slice de mensajes y lo llenamos cada vez que <code>expectPeek</code> no encuentra lo esperado.</p>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>parser/parser.go</span></div>
+<pre><code class="language-go">type Parser struct {
+    l      *lexer.Lexer
+    errors []string
+    // [...]
+}
+
+func New(l *lexer.Lexer) *Parser {
+    p := &amp;Parser{
+        l:      l,
+        errors: []string{},
+    }
+    // [...]
+}
+
+func (p *Parser) Errors() []string {
+    return p.errors
+}
+
+func (p *Parser) peekError(t token.TokenType) {
+    msg := fmt.Sprintf("expected next token to be %s, got %s instead",
+        t, p.peekToken.Type)
+    p.errors = append(p.errors, msg)
+}
+
+func (p *Parser) expectPeek(t token.TokenType) bool {
+    if p.peekTokenIs(t) {
+        p.nextToken()
+        return true
+    } else {
+        p.peekError(t)
+        return false
+    }
+}</code></pre>
+                </div>
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>parser/parser_test.go</span></div>
+<pre><code class="language-go">func checkParserErrors(t *testing.T, p *Parser) {
+    errors := p.Errors()
+    if len(errors) == 0 {
+        return
+    }
+
+    t.Errorf("parser has %d errors", len(errors))
+    for _, msg := range errors {
+        t.Errorf("parser error: %q", msg)
+    }
+    t.FailNow()
+}</code></pre>
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header"><span>Entrada inválida → salida de go test</span></div>
+<pre><code class="language-plaintext">let x 5;
+let = 10;
+let 838383;
+
+parser error: "expected next token to be =, got INT instead"
+parser error: "expected next token to be IDENT, got = instead"
+parser error: "expected next token to be IDENT, got INT instead"</code></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 10. RETURN ==================== -->
+        <section id="return" class="section slide">
+            <h2>10. Sentencias <code>return</code></h2>
+            <p>Forma: <code>return &lt;expresión&gt;;</code>. Es más sencilla que <code>let</code>: solo hay un token fijo y luego una expresión.</p>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>ast/ast.go</span></div>
+<pre><code class="language-go">type ReturnStatement struct {
+    Token       token.Token // el token 'return'
+    ReturnValue Expression
+}
+
+func (rs *ReturnStatement) statementNode()       {}
+func (rs *ReturnStatement) TokenLiteral() string { return rs.Token.Literal }</code></pre>
+                </div>
+                <div class="code-block">
+                    <div class="code-header"><span>parser/parser.go</span></div>
+<pre><code class="language-go">func (p *Parser) parseStatement() ast.Statement {
+    switch p.curToken.Type {
+    case token.LET:
+        return p.parseLetStatement()
+    case token.RETURN:
+        return p.parseReturnStatement()
+    default:
+        return nil
+    }
+}
+
+func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
+    stmt := &amp;ast.ReturnStatement{Token: p.curToken}
+
+    p.nextToken()
+
+    // TODO: saltamos la expresión hasta el ;
+    for !p.curTokenIs(token.SEMICOLON) {
+        p.nextToken()
+    }
+    return stmt
+}</code></pre>
+                </div>
+            </div>
+            <div class="code-block">
+                <div class="code-header"><span>parser/parser_test.go</span></div>
+<pre><code class="language-go">func TestReturnStatements(t *testing.T) {
+    input := `
+return 5;
+return 10;
+return 993322;
+`
+    l := lexer.New(input)
+    p := New(l)
+    program := p.ParseProgram()
+    checkParserErrors(t, p)
+
+    if len(program.Statements) != 3 {
+        t.Fatalf("program.Statements does not contain 3 statements. got=%d", len(program.Statements))
+    }
+    for _, stmt := range program.Statements {
+        returnStmt, ok := stmt.(*ast.ReturnStatement)
+        if !ok {
+            t.Errorf("stmt not *ast.ReturnStatement. got=%T", stmt)
+            continue
+        }
+        if returnStmt.TokenLiteral() != "return" {
+            t.Errorf("returnStmt.TokenLiteral not 'return', got %q", returnStmt.TokenLiteral())
+        }
+    }
+}</code></pre>
+            </div>
+        </section>
+
+        <!-- ==================== 11. SIMULADOR ==================== -->
+        <section id="simulador" class="section slide">
+            <h2>11. Simulador: el parser de esta semana, paso a paso</h2>
+            <p>Este simulador ejecuta la versión del parser <strong>tal como queda al final del Cap. 2.5</strong> (solo <code>let</code> y <code>return</code>, saltando expresiones). Avanza con <strong>Paso</strong> y observa la ventana <code>curToken</code> / <code>peekToken</code>.</p>
+
+            <div class="playground">
+                <label for="sim-input" class="viz-label">Código Monkey</label>
+                <textarea id="sim-input" class="playground-input" spellcheck="false">let x = 5;
+let = 10;
+return x;</textarea>
+                <div class="playground-actions">
+                    <button type="button" class="btn-pill primary" id="sim-step"><span data-icon="play"></span>Paso</button>
+                    <button type="button" class="btn-pill" id="sim-all">Ejecutar todo</button>
+                    <button type="button" class="btn-pill" id="sim-reset">Reiniciar</button>
+                    <button type="button" class="btn-pill" data-sim-sample="let x = 5;&#10;let y = 10;&#10;let foobar = 838383;">Ejemplo: válido</button>
+                    <button type="button" class="btn-pill" data-sim-sample="let x 5;&#10;let = 10;&#10;let 838383;">Ejemplo: errores del libro</button>
+                </div>
+                <div class="viz-grid">
+                    <div>
+                        <div class="viz-label">Ventana del parser</div>
+                        <div class="token-stream" id="sim-window" aria-live="polite"></div>
+                        <div class="viz-label" style="margin-top:1rem;">Bitácora</div>
+                        <div class="viz-panel"><table class="trace-table"><tbody id="sim-log"></tbody></table></div>
+                    </div>
+                    <div>
+                        <div class="viz-label">program.Statements</div>
+                        <div class="viz-panel" id="sim-stmts"></div>
+                        <div class="viz-label" style="margin-top:1rem;">p.Errors()</div>
+                        <div class="viz-panel" id="sim-errors" style="min-height:80px;"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="warn-box">
+                <strong>Detalle a observar:</strong> en esta versión intermedia del libro, el ciclo <code>for !p.curTokenIs(token.SEMICOLON)</code> nunca termina si falta el <code>;</code> final (en <code>EOF</code> el lexer sigue devolviendo <code>EOF</code>). El simulador se detiene en <code>EOF</code> para mostrarlo. Este caso aparece en la guía de ejercicios.
+            </div>
+        </section>
+
+        <!-- CORRER:INICIO -->
+        <!-- Generado por scripts/build_correr.py: no editar a mano. -->
+        <section id="correr" class="section slide">
+            <h2>Córrelo en ZeldaInterpreter</h2>
+            <p>Con <code>-modo=ast</code> el intérprete se detiene después del parser e imprime el <code>String()</code> del programa; con <code>-modo=arbol</code> dibuja el AST. Así puedes ver las sentencias <code>let</code> y <code>return</code> que construye tu parser.</p>
+            
+            <div class="grid-2 correr-grid">
+<div><div class="code-block"><div class="code-header"><span>terminal · primero, las pruebas (deben salir en ok)</span></div>
+<pre><code class="language-bash">cd zeldainterpreter
+go test ./ast/ ./parser/</code></pre></div></div>
+<div><div class="code-block"><div class="code-header"><span>salida</span></div>
+<pre><code class="language-plaintext">ok  	zeldainterpreter/ast
+ok  	zeldainterpreter/parser</code></pre></div></div>
+            </div>
+            <div class="grid-2 correr-grid">
+<div class="card">
+<h3>let y return como texto</h3>
+<p>Una línea por sentencia de <code>program.Statements</code>.</p>
+<div class="code-block"><div class="code-header"><span>terminal</span></div>
+<pre><code class="language-bash">go run . -modo=ast -e &#x27;let x = 5; return x;&#x27;</code></pre></div>
+<div class="code-block"><div class="code-header"><span>salida</span></div>
+<pre><code class="language-plaintext">let x = 5;
+return x;</code></pre></div>
+</div>
+<div class="card">
+<h3>El AST dibujado</h3>
+<p><code>LetStatement</code> con su <code>Name</code> (Identifier) y su <code>Value</code>.</p>
+<div class="code-block"><div class="code-header"><span>terminal</span></div>
+<pre><code class="language-bash">go run . -modo=arbol -e &#x27;let edad = 20;&#x27;</code></pre></div>
+<div class="code-block"><div class="code-header"><span>salida</span></div>
+<pre><code class="language-plaintext">Program
+└── LetStatement
+    ├── nombre: Identifier edad
+    └── valor: IntegerLiteral 20</code></pre></div>
+</div>
+<div class="card">
+<h3>Errores de sintaxis</h3>
+<p>Cada mensaje viene de <code>peekError()</code> o de <code>noPrefixParseFnError()</code>; el parser <strong>no se detiene</strong> en el primer error, los acumula en <code>Errors()</code>.</p>
+<div class="code-block"><div class="code-header"><span>programas/error_sintaxis.mk</span></div>
+<pre><code class="language-javascript">let x 5;
+let = 10;
+let suma = fn(a, b) { a + b ;</code></pre></div>
+<div class="code-block"><div class="code-header"><span>terminal</span></div>
+<pre><code class="language-bash">go run . programas/error_sintaxis.mk
+echo $?        # código de salida</code></pre></div>
+<div class="code-block"><div class="code-header"><span>salida</span></div>
+<pre><code class="language-plaintext">       /\
+      /  \       ZeldaInterpreter
+     /_*__\      ¡Ups! El hechizo tiene errores de sintaxis:
+     ( o.o )
+      &gt; ^ &lt;
+  • expected next token to be =, got INT instead
+  • expected next token to be IDENT, got = instead
+  • no prefix parse function for = found
+1</code></pre></div>
+</div>
+</div>
+            <div class="info-box"><strong>¿Y mi propio intérprete?</strong> Si construyes el tuyo siguiendo el libro, los mismos comandos funcionan sobre tu código a medida que avanzas. <code>zeldainterpreter/</code> es la versión de referencia completa para comparar resultados.</div>
+        </section>
+        <!-- CORRER:FIN -->
+
+
+        <!-- ==================== SIMULADOR ZELDAINTERPRETER ==================== -->
+        <section id="simulador-zelda" class="section slide">
+            <h2>Simulador ZeldaInterpreter</h2>
+            <p>Con lo de esta semana el parser organiza los tokens en un árbol. En la pestaña <strong>AST</strong> cada <code>let</code> se convierte en un <code>LetStatement</code> y cada <code>return</code> en un <code>ReturnStatement</code>.</p>
+            <div data-simulator data-stage="ast" data-code="let x = 5;&#10;let y = x;&#10;return x;"></div>
+        </section>
+
+        <!-- ==================== 12. RESUMEN ==================== -->
+        <section id="resumen" class="section slide">
+            <h2>12. Ideas clave de la semana</h2>
+            <div class="key-ideas">
+                <div class="key-idea"><h3>El AST es abstracto</h3><p>Guarda la estructura, no la sintaxis superficial (<code>;</code>, paréntesis, espacios).</p></div>
+                <div class="key-idea"><h3>Dos familias de nodos</h3><p><code>Statement</code> y <code>Expression</code> se distinguen con métodos marcadores vacíos.</p></div>
+                <div class="key-idea"><h3>Ventana de dos tokens</h3><p><code>curToken</code> + <code>peekToken</code> permiten decidir sin retroceder.</p></div>
+                <div class="key-idea"><h3><code>expectPeek</code> impone el orden</h3><p>Avanza solo si el siguiente token es el correcto; si no, registra un error.</p></div>
+                <div class="key-idea"><h3>Errores acumulados</h3><p>El parser no se detiene en el primer error: los reúne en <code>p.errors</code>.</p></div>
+                <div class="key-idea"><h3>TDD siempre</h3><p>Cada tipo de sentencia nace de una prueba que primero falla.</p></div>
+            </div>
+        </section>
+
+        <!-- ==================== 13. TALLER ==================== -->
+        <section id="taller" class="section slide">
+            <h2>13. Taller Práctico — Semana 4</h2>
+            <div class="card glass">
+                <h3><span data-icon="wrench"></span>Entregable: paquetes <code>ast</code> y <code>parser</code> (versión Cap. 2.5)</h3>
+                <ol class="steps">
+                    <li>Crea <code>ast/ast.go</code> con <code>Node</code>, <code>Statement</code>, <code>Expression</code>, <code>Program</code>, <code>LetStatement</code>, <code>Identifier</code> y <code>ReturnStatement</code>.</li>
+                    <li>Crea <code>parser/parser.go</code> con <code>New</code>, <code>nextToken</code>, <code>ParseProgram</code>, <code>parseStatement</code>, <code>parseLetStatement</code>, <code>parseReturnStatement</code>, <code>expectPeek</code> y <code>peekError</code>.</li>
+                    <li>Haz pasar <code>TestLetStatements</code> y <code>TestReturnStatements</code> con <code>go test -v ./parser</code>.</li>
+                    <li><strong>Reto:</strong> corrige el ciclo infinito cuando falta el <code>;</code> (detente también en <code>EOF</code>) y escribe una prueba que lo demuestre.</li>
+                </ol>
+            </div>
+
+            <div class="exercise-cta">
+                <div>
+                    <h3>Guía de ejercicios · Semana 4</h3>
+                    <p>Dibujo de ASTs, trazas de <code>curToken</code>/<code>peekToken</code>, mensajes de error esperados y retos en Go.</p>
+                </div>
+                <a class="btn-download" data-pdf-link href="#"><span data-icon="file-down"></span>Descargar PDF</a>
+            </div>
+
+            <div class="tip-box">
+                <strong>Próxima semana (Semana 5 · Cap. 2B):</strong> eliminamos los <code>TODO</code>. Implementaremos el <strong>Pratt parser</strong> para parsear expresiones con precedencia: <code>-a * b</code>, <code>1 + 2 * 3</code>, <code>if</code>, funciones y llamadas.
+            </div>
+        </section>
+
+        <nav class="class-footer-nav" data-course-footer aria-label="Navegación entre clases"></nav>
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/go.min.js"></script>
+    <script src="../assets/course.js"></script>
+    <script src="../assets/presentation.js"></script>
+    <script src="../assets/simulator.js"></script>
+    <script src="../assets/monkey.js"></script>
+    <script>
+        /* Simulador del parser del Cap. 2.5: solo let/return, saltando expresiones hasta ';' */
+        (function () {
+            const $ = (id) => document.getElementById(id);
+            const input = $('sim-input');
+            let steps = [], shown = 0;
+
+            function simulate(src) {
+                const toks = Monkey.lex(src);
+                let i = 0;
+                const tok = (k) => toks[Math.min(k, toks.length - 1)];
+                let cur = tok(0), peek = tok(1);
+                const out = [], stmts = [], errors = [];
+                const snap = (msg, kind) => out.push({ cur, peek, msg, kind: kind || '', stmts: stmts.slice(), errors: errors.slice() });
+                const next = () => { i++; cur = tok(i); peek = tok(i + 1); };
+                const expectPeek = (t) => {
+                    if (peek.type === t) { next(); snap(`expectPeek(${t}) ✓ → avanza`, 'ok'); return true; }
+                    errors.push(`expected next token to be ${Monkey.goType(t)}, got ${Monkey.goType(peek.type)} instead`);
+                    snap(`expectPeek(${t}) ✗ → peekError, retorna nil`, 'err');
+                    return false;
+                };
+                const skipToSemicolon = () => {
+                    while (cur.type !== 'SEMICOLON') {
+                        if (cur.type === 'EOF') { snap('¡EOF sin ";"! En Go este for sería infinito', 'err'); return false; }
+                        next();
+                    }
+                    snap('TODO: expresión saltada hasta ";"');
+                    return true;
+                };
+                snap('New(): dos llamadas a nextToken()');
+                let guard = 0;
+                while (cur.type !== 'EOF' && guard++ < 500) {
+                    if (cur.type === 'LET') {
+                        snap('parseStatement → parseLetStatement()');
+                        let name = null, ok = expectPeek('IDENT');
+                        if (ok) { name = cur.literal; ok = expectPeek('ASSIGN'); }
+                        if (ok) {
+                            if (!skipToSemicolon()) break;
+                            stmts.push(`*ast.LetStatement{Name: "${name}"}`);
+                            snap('stmt != nil → append a Statements', 'ok');
+                        }
+                    } else if (cur.type === 'RETURN') {
+                        snap('parseStatement → parseReturnStatement()');
+                        next();
+                        if (!skipToSemicolon()) break;
+                        stmts.push('*ast.ReturnStatement{}');
+                        snap('stmt != nil → append a Statements', 'ok');
+                    } else {
+                        snap(`parseStatement → default: nil (${cur.type} se ignora)`);
+                    }
+                    next();
+                    snap('ParseProgram: p.nextToken()');
+                }
+                snap('curToken es EOF → fin de ParseProgram()', 'ok');
+                return out;
+            }
+
+            const chip = (label, t) => `<span class="token-chip"><span class="tok-type">${label}</span><span class="tok-lit">${Monkey.esc(t.type)} ${Monkey.esc(JSON.stringify(t.literal))}</span></span>`;
+
+            function render() {
+                const s = steps[Math.max(0, shown - 1)];
+                $('sim-window').innerHTML = s ? chip('cur', s.cur) + chip('peek', s.peek) : '';
+                $('sim-log').innerHTML = steps.slice(0, shown).map((x, k) =>
+                    `<tr class="${k === shown - 1 ? 'is-current' : ''}"><td class="trace-depth">${k + 1}</td><td style="color:${x.kind === 'err' ? 'var(--danger)' : x.kind === 'ok' ? 'var(--success)' : 'inherit'}">${Monkey.esc(x.msg)}</td></tr>`).join('');
+                const log = $('sim-log').parentElement.parentElement;
+                log.scrollTop = log.scrollHeight;
+                $('sim-stmts').innerHTML = s && s.stmts.length ? s.stmts.map((x, k) => `<div class="token-chip" style="margin:0 0 .4rem"><span class="tok-type">[${k}]</span><span class="tok-lit">${Monkey.esc(x)}</span></div>`).join('') : '<span style="color:var(--text-muted);font-size:.85rem">(vacío)</span>';
+                $('sim-errors').innerHTML = s && s.errors.length ? s.errors.map((e) => `<div style="color:#fca5a5;font-family:var(--font-mono);font-size:.8rem;margin-bottom:.3rem">${Monkey.esc(e)}</div>`).join('') : '<span style="color:var(--text-muted);font-size:.85rem">(sin errores)</span>';
+                $('sim-step').disabled = shown >= steps.length;
+            }
+            function reset() { steps = simulate(input.value); shown = 1; render(); }
+
+            $('sim-step').addEventListener('click', () => { if (shown < steps.length) { shown++; render(); } });
+            $('sim-all').addEventListener('click', () => { shown = steps.length; render(); });
+            $('sim-reset').addEventListener('click', reset);
+            input.addEventListener('input', reset);
+            document.querySelectorAll('[data-sim-sample]').forEach((b) => b.addEventListener('click', () => { input.value = b.dataset.simSample; reset(); }));
+            reset();
+        })();
+    </script>
+</body>
+</html>

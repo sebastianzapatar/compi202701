@@ -1,0 +1,6 @@
+[trace] call  fib
+[trace] call  fib
+[trace] call  len
+[trace] call  foo
+[trace] error identifier not found: foo
+perfil: map[fib:2 foo:1 len:1]

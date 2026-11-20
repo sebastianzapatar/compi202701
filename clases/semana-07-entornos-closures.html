@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Semana 7: Entornos y Closures (Cap. 3.9–3.11) | ZeldaInterpreter · Lenguajes y Compiladores 2027-1</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css">
+    <link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body data-week="7">
+    <a class="skip-link" href="#contenido">Saltar al contenido</a>
+
+    <aside class="sidebar">
+        <div class="logo">
+            <a href="../index.html">
+                <h1 class="brand"><span class="brand-logo" data-logo="56"></span><span class="brand-name">ZeldaInterpreter</span></h1><p class="logo-subtitle">Semana 07 · Capítulo 3B</p>
+            </a>
+        </div>
+
+        <a href="../index.html" class="back-link"><span data-icon="home"></span>Portal del Curso</a>
+
+        <button type="button" class="present-btn" id="toggle-slides-btn" aria-pressed="false">
+            <span data-icon="presentation"></span>Modo Presentación <kbd>P</kbd>
+        </button>
+        <a class="pdf-btn" data-pdf-link href="#"><span data-icon="file-down"></span>Ejercicios de la semana (PDF)</a>
+
+        <nav>
+            <div class="nav-group-title">Contenido de la Clase</div>
+            <ul>
+                <li><a href="#portada" class="active">Portada y objetivos</a></li>
+                <li><a href="#environment">1. Bindings y el Environment</a></li>
+                <li><a href="#let-ident">2. Evaluar let e identificadores</a></li>
+                <li><a href="#function-obj">3. Funciones como objetos</a></li>
+                <li><a href="#llamadas">4. Evaluar llamadas</a></li>
+                <li><a href="#encerrados">5. Entornos encerrados</a></li>
+                <li><a href="#closures">6. Closures</a></li>
+                <li><a href="#orden-superior">7. Funciones de orden superior</a></li>
+                <li><a href="#repl">8. REPL con entorno visible</a></li>
+                <li><a href="#gc">9. ¿Quién saca la basura?</a></li>
+                <li><a href="#correr">Córrelo en ZeldaInterpreter</a></li>
+                <li><a href="#simulador-zelda">Simulador ZeldaInterpreter</a></li>
+                <li><a href="#resumen">10. Ideas clave</a></li>
+                <li><a href="#taller">11. Taller de la Semana 7</a></li>
+            </ul>
+            <div data-course-nav></div>
+        </nav>
+
+        <div class="sidebar-footer">
+            Semana 7 de 8 · Cap. 3.9–3.11 (pp. 136–151)
+        </div>
+    </aside>
+
+    <main class="content" id="contenido">
+
+        <!-- ==================== PORTADA ==================== -->
+        <header id="portada" class="hero slide">
+            <div class="hero-badge"><span data-icon="link"></span>Semana 07 · Bloque II · Capítulo 3 (Parte B)</div>
+            <h1>Evaluación II: <span class="gradient-text">Entornos, Funciones y Closures</span></h1>
+            <p>Nuestro intérprete ya calcula, pero no recuerda nada. Hoy le damos <strong>memoria</strong> con el <code>Environment</code>, convertimos las funciones en valores de primera clase y descubrimos que los <strong>closures</strong> salen casi gratis.</p>
+            <div class="hero-meta">
+                <span class="meta-pill"><span data-icon="book"></span>Libro: Cap. 3.9 – 3.11 (pp. 136–151)</span>
+                <span class="meta-pill"><span data-icon="folder"></span>Archivos: <code>object/environment.go</code>, <code>evaluator.go</code></span>
+                <span class="meta-pill"><span data-icon="terminal"></span>REPL con visor de entorno</span>
+            </div>
+            <div class="objectives" aria-label="Objetivos de la clase">
+                <div class="objective"><span class="num">1</span><span>Implementar un <code>Environment</code> que asocia nombres con objetos.</span></div>
+                <div class="objective"><span class="num">2</span><span>Representar funciones como objetos que capturan su entorno.</span></div>
+                <div class="objective"><span class="num">3</span><span>Evaluar llamadas con entornos encerrados (<code>outer</code>).</span></div>
+                <div class="objective"><span class="num">4</span><span>Explicar por qué funcionan los closures y quién libera la memoria.</span></div>
+            </div>
+        </header>
+
+        <!-- ==================== 1. ENVIRONMENT ==================== -->
+        <section id="environment" class="section slide">
+            <h2>1. Bindings y el <code>Environment</code></h2>
+            <p>Un <em>binding</em> asocia un nombre con un valor: <code>let x = 5 * 5;</code>. Para recordarlos necesitamos un lugar donde guardarlos. En el fondo, el entorno es <strong>un hash map de strings a objetos</strong>.</p>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>object/environment.go — primera versión</span></div>
+<pre><code class="language-go">package object
+
+func NewEnvironment() *Environment {
+    s := make(map[string]Object)
+    return &amp;Environment{store: s}
+}
+
+type Environment struct {
+    store map[string]Object
+}
+
+func (e *Environment) Get(name string) (Object, bool) {
+    obj, ok := e.store[name]
+    return obj, ok
+}
+
+func (e *Environment) Set(name string, val Object) Object {
+    e.store[name] = val
+    return val
+}</code></pre>
+                </div>
+                <div>
+                    <div class="card glass">
+                        <h3>Cambio de firma en todo el evaluador</h3>
+                        <p>El entorno debe viajar por cada llamada recursiva:</p>
+<pre><code class="language-go">func Eval(node ast.Node, env *object.Environment) object.Object</code></pre>
+                        <p>Todas las funciones auxiliares (<code>evalProgram</code>, <code>evalBlockStatement</code>, <code>evalIfExpression</code>…) reciben ahora <code>env</code>.</p>
+                    </div>
+                    <div class="warn-box">
+                        <strong>En el REPL</strong> el entorno se crea <em>fuera</em> del ciclo <code>for</code>. Si se creara adentro, cada línea olvidaría las variables de la anterior.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 2. LET / IDENT ==================== -->
+        <section id="let-ident" class="section slide">
+            <h2>2. Evaluar <code>let</code> e identificadores</h2>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>evaluator/evaluator.go</span></div>
+<pre><code class="language-go">case *ast.LetStatement:
+    val := Eval(node.Value, env)
+    if isError(val) {
+        return val
+    }
+    env.Set(node.Name.Value, val)
+
+case *ast.Identifier:
+    return evalIdentifier(node, env)
+
+func evalIdentifier(node *ast.Identifier, env *object.Environment) object.Object {
+    val, ok := env.Get(node.Value)
+    if !ok {
+        return newError("identifier not found: " + node.Value)
+    }
+    return val
+}</code></pre>
+                </div>
+                <div class="code-block">
+                    <div class="code-header"><span>evaluator/evaluator_test.go</span></div>
+<pre><code class="language-go">func TestLetStatements(t *testing.T) {
+    tests := []struct {
+        input    string
+        expected int64
+    }{
+        {"let a = 5; a;", 5},
+        {"let a = 5 * 5; a;", 25},
+        {"let a = 5; let b = a; b;", 5},
+        {"let a = 5; let b = a; let c = a + b + 5; c;", 15},
+    }
+    for _, tt := range tests {
+        testIntegerObject(t, testEval(tt.input), tt.expected)
+    }
+}
+
+// en TestErrorHandling:
+{"foobar", "identifier not found: foobar"},</code></pre>
+                </div>
+            </div>
+            <div class="info-box">
+                <strong>Detalle:</strong> el <code>case</code> de <code>LetStatement</code> no retorna nada (el <code>switch</code> cae al <code>return nil</code> final). Una sentencia <code>let</code> <em>no produce valor</em>, coherente con la diferencia sentencia/expresión de la Semana 4.
+            </div>
+        </section>
+
+        <!-- ==================== 3. FUNCTION OBJ ==================== -->
+        <section id="function-obj" class="section slide">
+            <h2>3. Funciones como objetos de primera clase</h2>
+            <p>Una función en Monkey es un valor como cualquier otro: se guarda en variables, se pasa como argumento y se retorna. Necesita su propio tipo de objeto.</p>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>object/object.go</span></div>
+<pre><code class="language-go">const FUNCTION_OBJ = "FUNCTION"
+
+type Function struct {
+    Parameters []*ast.Identifier
+    Body       *ast.BlockStatement
+    Env        *Environment
+}
+
+func (f *Function) Type() ObjectType { return FUNCTION_OBJ }
+func (f *Function) Inspect() string {
+    var out bytes.Buffer
+
+    params := []string{}
+    for _, p := range f.Parameters {
+        params = append(params, p.String())
+    }
+
+    out.WriteString("fn")
+    out.WriteString("(")
+    out.WriteString(strings.Join(params, ", "))
+    out.WriteString(") {\n")
+    out.WriteString(f.Body.String())
+    out.WriteString("\n}")
+
+    return out.String()
+}</code></pre>
+                </div>
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>evaluator/evaluator.go</span></div>
+<pre><code class="language-go">case *ast.FunctionLiteral:
+    params := node.Parameters
+    body := node.Body
+    return &amp;object.Function{Parameters: params, Env: env, Body: body}</code></pre>
+                    </div>
+                    <div class="card card-accent">
+                        <h3 style="color: var(--accent);">El campo que lo cambia todo: <code>Env</code></h3>
+                        <p>La función guarda un puntero al entorno <strong>donde fue definida</strong>. Ese campo es lo que hace posibles los closures. Pregunta para la clase: ¿qué pasaría si no lo guardáramos?</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 4. LLAMADAS ==================== -->
+        <section id="llamadas" class="section slide">
+            <h2>4. Evaluar llamadas a funciones</h2>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>evaluator/evaluator.go</span></div>
+<pre><code class="language-go">case *ast.CallExpression:
+    function := Eval(node.Function, env)
+    if isError(function) {
+        return function
+    }
+    args := evalExpressions(node.Arguments, env)
+    if len(args) == 1 &amp;&amp; isError(args[0]) {
+        return args[0]
+    }
+    return applyFunction(function, args)
+
+func evalExpressions(
+    exps []ast.Expression,
+    env *object.Environment,
+) []object.Object {
+    var result []object.Object
+
+    for _, e := range exps {
+        evaluated := Eval(e, env)
+        if isError(evaluated) {
+            return []object.Object{evaluated}
+        }
+        result = append(result, evaluated)
+    }
+    return result
+}</code></pre>
+                </div>
+                <div class="code-block">
+                    <div class="code-header"><span>evaluator/evaluator.go</span></div>
+<pre><code class="language-go">func applyFunction(fn object.Object, args []object.Object) object.Object {
+    function, ok := fn.(*object.Function)
+    if !ok {
+        return newError("not a function: %s", fn.Type())
+    }
+
+    extendedEnv := extendFunctionEnv(function, args)
+    evaluated := Eval(function.Body, extendedEnv)
+    return unwrapReturnValue(evaluated)
+}
+
+func extendFunctionEnv(
+    fn *object.Function,
+    args []object.Object,
+) *object.Environment {
+    env := object.NewEnclosedEnvironment(fn.Env)
+
+    for paramIdx, param := range fn.Parameters {
+        env.Set(param.Value, args[paramIdx])
+    }
+    return env
+}
+
+func unwrapReturnValue(obj object.Object) object.Object {
+    if returnValue, ok := obj.(*object.ReturnValue); ok {
+        return returnValue.Value
+    }
+    return obj
+}</code></pre>
+                </div>
+            </div>
+            <ol class="steps">
+                <li>Evalúa la expresión de la función (puede ser un identificador o un literal <code>fn</code>).</li>
+                <li>Evalúa los argumentos <strong>de izquierda a derecha</strong>.</li>
+                <li>Crea un entorno nuevo cuyo <code>outer</code> es <code>fn.Env</code> y liga parámetros → argumentos.</li>
+                <li>Evalúa el cuerpo y <strong>desenvuelve</strong> el <code>ReturnValue</code> para que el <code>return</code> no “escape” de la función.</li>
+            </ol>
+        </section>
+
+        <!-- ==================== 5. ENCERRADOS ==================== -->
+        <section id="encerrados" class="section slide">
+            <h2>5. Entornos encerrados: el campo <code>outer</code></h2>
+            <p>Si al llamar <code>fn(x)</code> escribiéramos <code>x</code> directamente en el entorno global, <strong>sobrescribiríamos</strong> cualquier <code>x</code> existente. Por eso cada llamada recibe un entorno nuevo que <em>envuelve</em> al anterior.</p>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>object/environment.go — versión final</span></div>
+<pre><code class="language-go">func NewEnclosedEnvironment(outer *Environment) *Environment {
+    env := NewEnvironment()
+    env.outer = outer
+    return env
+}
+
+type Environment struct {
+    store map[string]Object
+    outer *Environment
+}
+
+func (e *Environment) Get(name string) (Object, bool) {
+    obj, ok := e.store[name]
+    if !ok &amp;&amp; e.outer != nil {
+        obj, ok = e.outer.Get(name)
+    }
+    return obj, ok
+}</code></pre>
+                </div>
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>Monkey</span></div>
+<pre><code class="language-javascript">let i = 5;
+let printNum = fn(i) {
+    puts(i);
+};
+printNum(10); // imprime 10
+puts(i);      // imprime 5</code></pre>
+                    </div>
+                    <div class="env-chain" role="img" aria-label="El entorno de la llamada contiene i igual a 10 y su outer apunta al entorno global con i igual a 5">
+                        <div class="env-frame inner">
+                            <h4>Entorno de la llamada</h4>
+                            <div class="bind"><span>i</span><span>10</span></div>
+                        </div>
+                        <div class="env-arrow">outer<br>→</div>
+                        <div class="env-frame">
+                            <h4>Entorno global</h4>
+                            <div class="bind"><span>i</span><span>5</span></div>
+                            <div class="bind"><span>printNum</span><span>fn(i)</span></div>
+                        </div>
+                    </div>
+                    <div class="analogy-box">
+                        <strong>Analogía del libro:</strong> hojas de papel transparente apiladas. Buscas un nombre en la hoja de arriba; si no está, miras a través de ella la hoja de abajo. Escribir siempre ocurre en la hoja de arriba.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 6. CLOSURES ==================== -->
+        <section id="closures" class="section slide">
+            <h2>6. Closures: funciones que recuerdan</h2>
+            <div class="grid-2">
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>Monkey</span></div>
+<pre><code class="language-javascript">let newAdder = fn(x) {
+    fn(y) { x + y };
+};
+
+let addTwo = newAdder(2);
+addTwo(3); // =&gt; 5</code></pre>
+                    </div>
+                    <ol class="steps">
+                        <li><code>newAdder(2)</code> crea el entorno <strong>E1</strong> con <code>x = 2</code> (outer = global).</li>
+                        <li>Al evaluar <code>fn(y) { x + y }</code> dentro de E1, el nuevo <code>object.Function</code> guarda <code>Env = E1</code>.</li>
+                        <li><code>newAdder</code> termina, pero E1 sigue vivo porque <code>addTwo.Env</code> lo referencia.</li>
+                        <li><code>addTwo(3)</code> crea <strong>E2</strong> con <code>y = 3</code> y <code>outer = E1</code>: encuentra <code>x</code> en E1.</li>
+                    </ol>
+                </div>
+                <div>
+                    <div class="env-chain" role="img" aria-label="Durante addTwo de 3: E2 con y igual a 3 apunta a E1 con x igual a 2, que apunta al entorno global con newAdder y addTwo">
+                        <div class="env-frame inner">
+                            <h4>E2 · llamada addTwo(3)</h4>
+                            <div class="bind"><span>y</span><span>3</span></div>
+                        </div>
+                        <div class="env-arrow">outer →</div>
+                        <div class="env-frame closure">
+                            <h4>E1 · capturado</h4>
+                            <div class="bind"><span>x</span><span>2</span></div>
+                        </div>
+                        <div class="env-arrow">outer →</div>
+                        <div class="env-frame">
+                            <h4>Global</h4>
+                            <div class="bind"><span>newAdder</span><span>fn(x)</span></div>
+                            <div class="bind"><span>addTwo</span><span>fn(y) · Env=E1</span></div>
+                        </div>
+                    </div>
+                    <div class="tip-box">
+                        <strong>No escribimos código especial para closures.</strong> Salen solos de dos decisiones: (1) la función guarda <code>Env</code> al ser <em>creada</em> y (2) la llamada encierra <code>fn.Env</code>, no el entorno de quien la llama. Esto se llama <strong>alcance léxico</strong>.
+                    </div>
+                    <div class="warn-box">
+                        <strong>Error común:</strong> usar el <code>env</code> del sitio de llamada en <code>extendFunctionEnv</code>. Eso produce <em>alcance dinámico</em>, y <code>addTwo(3)</code> fallaría con <code>identifier not found: x</code>.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 7. ORDEN SUPERIOR ==================== -->
+        <section id="orden-superior" class="section slide">
+            <h2>7. Funciones de orden superior</h2>
+            <p>Como las funciones son valores, pueden recibir y devolver otras funciones:</p>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>Monkey</span></div>
+<pre><code class="language-javascript">let add = fn(a, b) { a + b };
+let sub = fn(a, b) { a - b };
+let applyFunc = fn(a, b, func) { func(a, b) };
+
+applyFunc(2, 2, add); // =&gt; 4
+applyFunc(10, 2, sub); // =&gt; 8</code></pre>
+                </div>
+                <div class="code-block">
+                    <div class="code-header"><span>Más casos de prueba del libro</span></div>
+<pre><code class="language-go">{"let identity = fn(x) { x; }; identity(5);", 5},
+{"let identity = fn(x) { return x; }; identity(5);", 5},
+{"let double = fn(x) { x * 2; }; double(5);", 10},
+{"let add = fn(x, y) { x + y; }; add(5, 5);", 10},
+{"let add = fn(x, y) { x + y; }; add(5 + 5, add(5, 5));", 20},
+{"fn(x) { x; }(5)", 5},</code></pre>
+                </div>
+            </div>
+            <div class="info-box">
+                <strong>Observa <code>fn(x) { x; }(5)</code>:</strong> se llama a un literal de función directamente. Funciona porque la Semana 5 permitió que el lado izquierdo de una llamada sea <em>cualquier</em> expresión.
+            </div>
+        </section>
+
+        <!-- ==================== 8. REPL ==================== -->
+        <section id="repl" class="section slide">
+            <h2>8. REPL con entorno visible</h2>
+            <p>Evalúa programas y observa qué queda guardado en el entorno global. Las funciones aparecen como <code>FUNCTION</code> con su lista de parámetros.</p>
+            <div class="playground">
+                <label for="repl-input" class="viz-label">Programa Monkey</label>
+                <textarea id="repl-input" class="playground-input" spellcheck="false" style="min-height:130px">let newAdder = fn(x) {
+    fn(y) { x + y };
+};
+let addTwo = newAdder(2);
+let addTen = newAdder(10);
+addTwo(3) + addTen(1);</textarea>
+                <div class="playground-actions">
+                    <button type="button" class="btn-pill primary" id="repl-run"><span data-icon="play"></span>Evaluar <kbd style="margin-left:.3rem;font-size:.7rem">Ctrl/⌘ + Enter</kbd></button>
+                    <button type="button" class="btn-pill" data-repl="let add = fn(a, b) { a + b };&#10;let sub = fn(a, b) { a - b };&#10;let applyFunc = fn(a, b, func) { func(a, b) };&#10;applyFunc(10, 2, sub);">Orden superior</button>
+                    <button type="button" class="btn-pill" data-repl="let i = 5;&#10;let f = fn(i) { i * 100 };&#10;f(10);">Sombra de variable</button>
+                    <button type="button" class="btn-pill" data-repl="let factorial = fn(n) { if (n &lt; 2) { 1 } else { n * factorial(n - 1) } };&#10;factorial(10);">Recursión</button>
+                    <button type="button" class="btn-pill" data-repl="let f = fn(x) { x };&#10;5(1);">not a function</button>
+                </div>
+                <div class="viz-grid">
+                    <div>
+                        <div class="viz-label">Resultado (Inspect)</div>
+                        <div class="viz-output" id="repl-output" aria-live="polite"></div>
+                    </div>
+                    <div class="env-frame" id="repl-env" style="min-width:0"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 9. GC ==================== -->
+        <section id="gc" class="section slide">
+            <h2>9. ¿Quién saca la basura? (<em>Who's taking the trash out?</em>)</h2>
+            <div class="grid-2">
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>Monkey</span></div>
+<pre><code class="language-javascript">let counter = fn(x) {
+    if (x &gt; 100) {
+        return true;
+    } else {
+        let foobar = 9999;
+        counter(x + 1);
+    }
+};
+
+counter(0);</code></pre>
+                    </div>
+                    <p>Este programa crea más de 100 objetos <code>Integer</code> para <code>foobar</code> y para cada <code>x + 1</code>, además de un entorno por llamada. Nadie los libera explícitamente.</p>
+                </div>
+                <div>
+                    <div class="card card-success">
+                        <h3 style="color: var(--success);">Respuesta: el runtime de Go</h3>
+                        <p>Nuestros objetos Monkey son valores Go comunes. Cuando ningún entorno ni objeto los referencia, el <strong>recolector de basura de Go</strong> los libera. Heredamos un GC de producción gratis.</p>
+                    </div>
+                    <div class="card card-warning">
+                        <h3 style="color: var(--warning);">¿Y si escribiéramos el intérprete en C?</h3>
+                        <p>Tendríamos que implementar nuestro propio GC (p. ej. <em>mark &amp; sweep</em>): recorrer todos los objetos alcanzables desde los entornos vivos, marcarlos y liberar el resto. Es un proyecto completo por sí mismo.</p>
+                    </div>
+                    <div class="info-box">
+                        <strong>Conexión con closures:</strong> el entorno E1 de <code>newAdder(2)</code> sigue vivo porque <code>addTwo</code> lo referencia. El GC solo puede liberarlo cuando <code>addTwo</code> deja de existir.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CORRER:INICIO -->
+        <!-- Generado por scripts/build_correr.py: no editar a mano. -->
+        <section id="correr" class="section slide">
+            <h2>Córrelo en ZeldaInterpreter</h2>
+            <p>Con <code>Environment</code> el intérprete ya recuerda variables y funciones. La consola conserva el entorno entre líneas, y <code>:env</code> te muestra qué hay guardado en él.</p>
+            
+            <div class="grid-2 correr-grid">
+<div><div class="code-block"><div class="code-header"><span>terminal · primero, las pruebas (deben salir en ok)</span></div>
+<pre><code class="language-bash">cd zeldainterpreter
+go test ./object/ ./evaluator/</code></pre></div></div>
+<div><div class="code-block"><div class="code-header"><span>salida</span></div>
+<pre><code class="language-plaintext">ok  	zeldainterpreter/object
+ok  	zeldainterpreter/evaluator</code></pre></div></div>
+            </div>
+            <div class="grid-2 correr-grid">
+<div class="card">
+<h3>Closures</h3>
+<p><code>sumarDos</code> y <code>sumarDiez</code> recuerdan cada una su propio <code>x</code>: el entorno capturado en <code>object.Function.Env</code>.</p>
+<div class="code-block"><div class="code-header"><span>programas/closures.mk</span></div>
+<pre><code class="language-javascript">let newAdder = fn(x) {
+  fn(y) { x + y }
+};
+
+let sumarDos = newAdder(2);
+let sumarDiez = newAdder(10);
+
+puts(&quot;sumarDos(40) =&quot;);
+puts(sumarDos(40));
+puts(&quot;sumarDiez(5) =&quot;);
+puts(sumarDiez(5));
+
+let compose = fn(f, g) {
+  fn(x) { f(g(x)) }
+};
+let doble = fn(x) { x * 2 };
+let dobleYMasDos = compose(sumarDos, doble);
+
+puts(&quot;compose(sumarDos, doble)(20) =&quot;);
+puts(dobleYMasDos(20));</code></pre></div>
+<div class="code-block"><div class="code-header"><span>terminal</span></div>
+<pre><code class="language-bash">go run . programas/closures.mk</code></pre></div>
+<div class="code-block"><div class="code-header"><span>salida</span></div>
+<pre><code class="language-plaintext">sumarDos(40) =
+42
+sumarDiez(5) =
+15
+compose(sumarDos, doble)(20) =
+42</code></pre></div>
+</div>
+<div class="card">
+<h3>Recursión</h3>
+<p><code>fibonacci</code> se encuentra a sí misma porque el <code>let</code> la guarda en el entorno global antes de que se llame.</p>
+<div class="code-block"><div class="code-header"><span>terminal</span></div>
+<pre><code class="language-bash">go run . programas/fibonacci.mk</code></pre></div>
+<div class="code-block"><div class="code-header"><span>salida</span></div>
+<pre><code class="language-plaintext">fibonacci(10) =
+55
+fibonacci(15) =
+610</code></pre></div>
+</div>
+<div class="card">
+<h3>El entorno en la consola</h3>
+<p><code>:env</code> lista lo que guardó <code>env.Set</code>. El <code>x = 2</code> no aparece: vive en el entorno encerrado de <code>sumarDos</code>.</p>
+<div class="code-block"><div class="code-header"><span>terminal</span></div>
+<pre><code class="language-bash">go run .</code></pre></div>
+<div class="code-block"><div class="code-header"><span>consola interactiva</span></div>
+<pre><code class="language-plaintext">ZeldaInterpreter · intérprete del lenguaje Monkey
+Modo actual: eval. Escribe :ayuda para ver los comandos, :salir para terminar.
+&gt;&gt; let newAdder = fn(x) { fn(y) { x + y } };
+&gt;&gt; let sumarDos = newAdder(2);
+&gt;&gt; sumarDos(40)
+42
+&gt;&gt; :env
+  newAdder     FUNCTION  fn(x)
+  sumarDos     FUNCTION  fn(y)
+&gt;&gt; :salir
+¡Hasta pronto!</code></pre></div>
+</div>
+</div>
+            <div class="info-box"><strong>¿Y mi propio intérprete?</strong> Si construyes el tuyo siguiendo el libro, los mismos comandos funcionan sobre tu código a medida que avanzas. <code>zeldainterpreter/</code> es la versión de referencia completa para comparar resultados.</div>
+        </section>
+        <!-- CORRER:FIN -->
+
+
+        <!-- ==================== SIMULADOR ZELDAINTERPRETER ==================== -->
+        <section id="simulador-zelda" class="section slide">
+            <h2>Simulador ZeldaInterpreter</h2>
+            <p>Observa el <strong>entorno global</strong> en la pestaña Evaluación: funciones, closures y variables quedan guardadas como bindings.</p>
+            <div data-simulator data-stage="eval" data-code="let newAdder = fn(x) { fn(y) { x + y } };&#10;let addTwo = newAdder(2);&#10;addTwo(40);"></div>
+        </section>
+
+        <!-- ==================== 10. RESUMEN ==================== -->
+        <section id="resumen" class="section slide">
+            <h2>10. Ideas clave de la semana</h2>
+            <div class="key-ideas">
+                <div class="key-idea"><h3>Entorno = map + outer</h3><p><code>Get</code> busca hacia afuera; <code>Set</code> siempre escribe en el entorno actual.</p></div>
+                <div class="key-idea"><h3>Funciones son valores</h3><p><code>object.Function</code> guarda parámetros, cuerpo y el entorno de definición.</p></div>
+                <div class="key-idea"><h3>Llamar = encerrar</h3><p>Cada llamada crea un entorno nuevo con <code>outer = fn.Env</code>.</p></div>
+                <div class="key-idea"><h3>Alcance léxico</h3><p>Lo que una función “ve” depende de dónde fue escrita, no de dónde se llama.</p></div>
+                <div class="key-idea"><h3>Closures gratis</h3><p>Surgen de capturar <code>Env</code>; no requieren un caso especial.</p></div>
+                <div class="key-idea"><h3>GC heredado</h3><p>El recolector de Go libera objetos y entornos no alcanzables.</p></div>
+            </div>
+            <div class="tip-box">
+                <strong>Hito del curso:</strong> con esto el intérprete es <em>Turing completo</em>: tiene variables, condicionales, funciones y recursión. Ya puedes escribir <code>fibonacci</code> en Monkey.
+            </div>
+        </section>
+
+        <!-- ==================== 11. TALLER ==================== -->
+        <section id="taller" class="section slide">
+            <h2>11. Taller Práctico — Semana 7</h2>
+            <div class="card glass">
+                <h3><span data-icon="wrench"></span>Entregable: evaluador completo del Capítulo 3</h3>
+                <ol class="steps">
+                    <li>Crea <code>object/environment.go</code> con <code>NewEnvironment</code>, <code>NewEnclosedEnvironment</code>, <code>Get</code> y <code>Set</code>.</li>
+                    <li>Cambia la firma a <code>Eval(node, env)</code> e implementa <code>let</code> e identificadores.</li>
+                    <li>Agrega <code>object.Function</code>, la evaluación de literales de función y de llamadas.</li>
+                    <li>Haz pasar <code>TestLetStatements</code>, <code>TestFunctionObject</code>, <code>TestFunctionApplication</code> y <code>TestClosures</code>.</li>
+                    <li><strong>Reto:</strong> haz que llamar una función con un número incorrecto de argumentos produzca <code>ERROR: wrong number of arguments: want=2, got=1</code> en lugar de un <em>panic</em> de índice.</li>
+                </ol>
+            </div>
+
+            <div class="exercise-cta">
+                <div>
+                    <h3>Guía de ejercicios · Semana 7</h3>
+                    <p>Diagramas de entornos, alcance léxico vs dinámico, closures y retos en Go.</p>
+                </div>
+                <a class="btn-download" data-pdf-link href="#"><span data-icon="file-down"></span>Descargar PDF</a>
+            </div>
+
+            <div class="tip-box">
+                <strong>Próxima semana (Semana 8 · Cap. 4):</strong> la última milla. Strings, funciones integradas, arrays y hashes — y el gran final con <code>map</code> y <code>reduce</code> escritos en Monkey.
+            </div>
+        </section>
+
+        <nav class="class-footer-nav" data-course-footer aria-label="Navegación entre clases"></nav>
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/go.min.js"></script>
+    <script src="../assets/course.js"></script>
+    <script src="../assets/presentation.js"></script>
+    <script src="../assets/simulator.js"></script>
+    <script src="../assets/monkey.js"></script>
+    <script src="../assets/repl-widget.js"></script>
+</body>
+</html>

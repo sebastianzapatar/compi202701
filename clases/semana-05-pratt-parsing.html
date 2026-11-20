@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Semana 5: Pratt Parsing (Cap. 2.6–2.9) | ZeldaInterpreter · Lenguajes y Compiladores 2027-1</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css">
+    <link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body data-week="5">
+    <a class="skip-link" href="#contenido">Saltar al contenido</a>
+
+    <aside class="sidebar">
+        <div class="logo">
+            <a href="../index.html">
+                <h1 class="brand"><span class="brand-logo" data-logo="56"></span><span class="brand-name">ZeldaInterpreter</span></h1><p class="logo-subtitle">Semana 05 · Capítulo 2B</p>
+            </a>
+        </div>
+
+        <a href="../index.html" class="back-link"><span data-icon="home"></span>Portal del Curso</a>
+
+        <button type="button" class="present-btn" id="toggle-slides-btn" aria-pressed="false">
+            <span data-icon="presentation"></span>Modo Presentación <kbd>P</kbd>
+        </button>
+        <a class="pdf-btn" data-pdf-link href="#"><span data-icon="file-down"></span>Ejercicios de la semana (PDF)</a>
+
+        <nav>
+            <div class="nav-group-title">Contenido de la Clase</div>
+            <ul>
+                <li><a href="#portada" class="active">Portada y objetivos</a></li>
+                <li><a href="#expresiones">1. Expresiones en Monkey</a></li>
+                <li><a href="#terminologia">2. Terminología de Pratt</a></li>
+                <li><a href="#registro">3. Funciones de parsing por token</a></li>
+                <li><a href="#precedencias">4. Tabla de precedencias</a></li>
+                <li><a href="#prefijos">5. Identificadores, enteros y prefijos</a></li>
+                <li><a href="#infijos">6. Operadores infijos</a></li>
+                <li><a href="#corazon">7. El corazón: parseExpression</a></li>
+                <li><a href="#traza">8. Traza: 1 + 2 * 3</a></li>
+                <li><a href="#visualizador">9. Visualizador interactivo</a></li>
+                <li><a href="#extender">10. Booleanos, agrupación e if</a></li>
+                <li><a href="#funciones">11. Funciones y llamadas</a></li>
+                <li><a href="#pruebas">12. Probar la precedencia</a></li>
+                <li><a href="#rppl">13. Read-Parse-Print-Loop</a></li>
+                <li><a href="#correr">Córrelo en ZeldaInterpreter</a></li>
+                <li><a href="#simulador-zelda">Simulador ZeldaInterpreter</a></li>
+                <li><a href="#resumen">14. Ideas clave</a></li>
+                <li><a href="#taller">15. Taller de la Semana 5</a></li>
+            </ul>
+            <div data-course-nav></div>
+        </nav>
+
+        <div class="sidebar-footer">
+            Semana 5 de 8 · Cap. 2.6–2.9 (pp. 46–102)
+        </div>
+    </aside>
+
+    <main class="content" id="contenido">
+
+        <!-- ==================== PORTADA ==================== -->
+        <header id="portada" class="hero slide">
+            <div class="hero-badge"><span data-icon="layers"></span>Semana 05 · Bloque II · Capítulo 2 (Parte B)</div>
+            <h1>Análisis Sintáctico II: <span class="gradient-text">Pratt Parsing</span></h1>
+            <p>Parsear expresiones es la parte más difícil del parser: hay operadores prefijos, infijos, precedencias, agrupaciones y llamadas. Vaughan Pratt (1973) lo resolvió con una idea elegante: <strong>asociar funciones de parsing a tipos de token</strong>.</p>
+            <div class="hero-meta">
+                <span class="meta-pill"><span data-icon="book"></span>Libro: Cap. 2.6 – 2.9 (pp. 46–102)</span>
+                <span class="meta-pill"><span data-icon="folder"></span>Paquetes: <code>ast</code>, <code>parser</code>, <code>repl</code></span>
+                <span class="meta-pill"><span data-icon="tree"></span>Visualizador de traza y AST</span>
+            </div>
+            <div class="objectives" aria-label="Objetivos de la clase">
+                <div class="objective"><span class="num">1</span><span>Explicar cómo Pratt usa precedencias para construir el árbol correcto.</span></div>
+                <div class="objective"><span class="num">2</span><span>Registrar funciones <code>prefixParseFn</code> e <code>infixParseFn</code> por tipo de token.</span></div>
+                <div class="objective"><span class="num">3</span><span>Trazar a mano <code>parseExpression</code> sobre expresiones como <code>1 + 2 * 3</code>.</span></div>
+                <div class="objective"><span class="num">4</span><span>Extender el parser con booleanos, <code>( )</code>, <code>if</code>, <code>fn</code> y llamadas.</span></div>
+            </div>
+        </header>
+
+        <!-- ==================== 1. EXPRESIONES ==================== -->
+        <section id="expresiones" class="section slide">
+            <h2>1. ¿Qué expresiones tiene Monkey?</h2>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Tipo</th><th>Ejemplos</th><th>Nodo AST</th></tr></thead>
+                    <tbody>
+                        <tr><td>Prefijas</td><td><code>-5</code> · <code>!true</code> · <code>!!x</code></td><td><code>PrefixExpression</code></td></tr>
+                        <tr><td>Infijas (binarias)</td><td><code>5 + 5</code> · <code>a * b</code> · <code>x == y</code> · <code>a &lt; b</code></td><td><code>InfixExpression</code></td></tr>
+                        <tr><td>Literales</td><td><code>foo</code> · <code>5</code> · <code>true</code></td><td><code>Identifier</code>, <code>IntegerLiteral</code>, <code>Boolean</code></td></tr>
+                        <tr><td>Agrupadas</td><td><code>5 * (5 + 5)</code></td><td><em>(ninguno: solo cambian el árbol)</em></td></tr>
+                        <tr><td>Condicionales</td><td><code>if (x &gt; y) { x } else { y }</code></td><td><code>IfExpression</code></td></tr>
+                        <tr><td>Funciones</td><td><code>fn(x, y) { return x + y; }</code></td><td><code>FunctionLiteral</code></td></tr>
+                        <tr><td>Llamadas</td><td><code>add(2, 3)</code> · <code>fn(x){x}(5)</code></td><td><code>CallExpression</code></td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <p>Como en Monkey una línea puede ser solo una expresión (<code>x + 10;</code>), necesitamos un tercer tipo de sentencia que la envuelva:</p>
+            <div class="code-block">
+                <div class="code-header"><span>ast/ast.go</span></div>
+<pre><code class="language-go">type ExpressionStatement struct {
+    Token      token.Token // el primer token de la expresión
+    Expression Expression
+}
+
+func (es *ExpressionStatement) statementNode()       {}
+func (es *ExpressionStatement) TokenLiteral() string { return es.Token.Literal }</code></pre>
+            </div>
+            <div class="info-box">
+                <strong>También llega <code>String()</code>:</strong> agregamos <code>String() string</code> a la interfaz <code>Node</code>. Cada nodo se imprime con paréntesis explícitos, p. ej. <code>(1 + (2 * 3))</code>. Esto hace que probar la precedencia sea trivial: comparamos strings.
+            </div>
+        </section>
+
+        <!-- ==================== 2. TERMINOLOGÍA ==================== -->
+        <section id="terminologia" class="section slide">
+            <h2>2. Terminología del Pratt parsing</h2>
+            <div class="grid-3">
+                <div class="card card-primary">
+                    <h3 style="color: var(--primary);">Operador prefijo</h3>
+                    <p>Va <strong>antes</strong> de su operando.</p>
+<pre><code class="language-javascript">--5
+!true</code></pre>
+                </div>
+                <div class="card card-accent">
+                    <h3 style="color: var(--accent);">Operador infijo</h3>
+                    <p>Va <strong>entre</strong> dos operandos: es binario.</p>
+<pre><code class="language-javascript">5 * 8
+a == b</code></pre>
+                </div>
+                <div class="card card-warning">
+                    <h3 style="color: var(--warning);">Operador posfijo</h3>
+                    <p>Va <strong>después</strong> del operando (<code>i++</code>). <em>Monkey no los tiene.</em></p>
+<pre><code class="language-javascript">foobar++</code></pre>
+                </div>
+            </div>
+            <div class="card glass">
+                <h3>La idea clave de Pratt</h3>
+                <p>En vez de una función por <em>regla gramatical</em> (como en un parser recursivo descendente clásico), Pratt asocia hasta <strong>dos funciones a cada tipo de token</strong>:</p>
+                <ul class="feature-list">
+                    <li><strong>prefix</strong>: se llama cuando el token aparece en <em>posición prefija</em> (al inicio de una expresión).</li>
+                    <li><strong>infix</strong>: se llama cuando el token aparece en <em>posición infija</em> (entre dos expresiones).</li>
+                </ul>
+                <p>Un mismo token puede tener ambas: <code>-</code> es prefijo en <code>-5</code> e infijo en <code>5 - 3</code>; <code>(</code> es prefijo en <code>(5 + 5)</code> e infijo en <code>add(1, 2)</code>.</p>
+            </div>
+        </section>
+
+        <!-- ==================== 3. REGISTRO ==================== -->
+        <section id="registro" class="section slide">
+            <h2>3. Funciones de parsing asociadas a tokens</h2>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>parser/parser.go</span></div>
+<pre><code class="language-go">type (
+    prefixParseFn func() ast.Expression
+    infixParseFn  func(ast.Expression) ast.Expression
+)
+
+type Parser struct {
+    l      *lexer.Lexer
+    errors []string
+
+    curToken  token.Token
+    peekToken token.Token
+
+    prefixParseFns map[token.TokenType]prefixParseFn
+    infixParseFns  map[token.TokenType]infixParseFn
+}
+
+func (p *Parser) registerPrefix(tokenType token.TokenType, fn prefixParseFn) {
+    p.prefixParseFns[tokenType] = fn
+}
+
+func (p *Parser) registerInfix(tokenType token.TokenType, fn infixParseFn) {
+    p.infixParseFns[tokenType] = fn
+}</code></pre>
+                </div>
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>parser/parser.go — New()</span></div>
+<pre><code class="language-go">p.prefixParseFns = make(map[token.TokenType]prefixParseFn)
+p.registerPrefix(token.IDENT, p.parseIdentifier)
+p.registerPrefix(token.INT, p.parseIntegerLiteral)
+p.registerPrefix(token.BANG, p.parsePrefixExpression)
+p.registerPrefix(token.MINUS, p.parsePrefixExpression)
+
+p.infixParseFns = make(map[token.TokenType]infixParseFn)
+p.registerInfix(token.PLUS, p.parseInfixExpression)
+p.registerInfix(token.MINUS, p.parseInfixExpression)
+p.registerInfix(token.SLASH, p.parseInfixExpression)
+p.registerInfix(token.ASTERISK, p.parseInfixExpression)
+p.registerInfix(token.EQ, p.parseInfixExpression)
+p.registerInfix(token.NOT_EQ, p.parseInfixExpression)
+p.registerInfix(token.LT, p.parseInfixExpression)
+p.registerInfix(token.GT, p.parseInfixExpression)</code></pre>
+                    </div>
+                    <div class="tip-box">
+                        <strong>Semana 2 en acción:</strong> <code>prefixParseFn</code> es un <em>tipo función</em> y <code>p.parseIdentifier</code> es un <em>method value</em>: una función que ya “recuerda” su receptor <code>p</code>.
+                    </div>
+                </div>
+            </div>
+            <div class="info-box">
+                <strong>El argumento de <code>infixParseFn</code></strong> es el lado <em>izquierdo</em> ya parseado. Por eso un infijo siempre “recibe” lo que estaba antes de él y parsea lo que viene después.
+            </div>
+        </section>
+
+        <!-- ==================== 4. PRECEDENCIAS ==================== -->
+        <section id="precedencias" class="section slide">
+            <h2>4. Tabla de precedencias</h2>
+            <div class="grid-2">
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>parser/parser.go</span></div>
+<pre><code class="language-go">const (
+    _ int = iota
+    LOWEST
+    EQUALS      // ==
+    LESSGREATER // &gt; or &lt;
+    SUM         // +
+    PRODUCT     // *
+    PREFIX      // -X or !X
+    CALL        // myFunction(X)
+)
+
+var precedences = map[token.TokenType]int{
+    token.EQ:       EQUALS,
+    token.NOT_EQ:   EQUALS,
+    token.LT:       LESSGREATER,
+    token.GT:       LESSGREATER,
+    token.PLUS:     SUM,
+    token.MINUS:    SUM,
+    token.SLASH:    PRODUCT,
+    token.ASTERISK: PRODUCT,
+    token.LPAREN:   CALL,
+}
+
+func (p *Parser) peekPrecedence() int {
+    if p, ok := precedences[p.peekToken.Type]; ok {
+        return p
+    }
+    return LOWEST
+}
+
+func (p *Parser) curPrecedence() int {
+    if p, ok := precedences[p.curToken.Type]; ok {
+        return p
+    }
+    return LOWEST
+}</code></pre>
+                    </div>
+                </div>
+                <div>
+                    <h3>De menor a mayor “fuerza de atracción”</h3>
+                    <div class="prec-ladder" role="list">
+                        <div class="prec-rung" role="listitem"><span class="lvl">1</span><span class="name">LOWEST</span><span class="ex">inicio de expresión</span></div>
+                        <div class="prec-rung" role="listitem"><span class="lvl">2</span><span class="name">EQUALS</span><span class="ex">a == b · a != b</span></div>
+                        <div class="prec-rung" role="listitem"><span class="lvl">3</span><span class="name">LESSGREATER</span><span class="ex">a &lt; b · a &gt; b</span></div>
+                        <div class="prec-rung" role="listitem"><span class="lvl">4</span><span class="name">SUM</span><span class="ex">a + b · a - b</span></div>
+                        <div class="prec-rung" role="listitem"><span class="lvl">5</span><span class="name">PRODUCT</span><span class="ex">a * b · a / b</span></div>
+                        <div class="prec-rung" role="listitem"><span class="lvl">6</span><span class="name">PREFIX</span><span class="ex">-x · !x</span></div>
+                        <div class="prec-rung" role="listitem"><span class="lvl">7</span><span class="name">CALL</span><span class="ex">f(x)</span></div>
+                    </div>
+                    <div class="analogy-box">
+                        <strong>Analogía:</strong> cada operador es un imán. Entre <code>1 + 2 * 3</code>, el <code>2</code> está en medio de dos imanes; el <code>*</code> (PRODUCT) atrae más fuerte que el <code>+</code> (SUM), así que el <code>2</code> termina pegado a la multiplicación.
+                    </div>
+                    <p style="font-size:0.88rem">Con <code>iota</code> los valores son 1..7. Lo que importa no es el número sino el <strong>orden relativo</strong>.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 5. PREFIJOS ==================== -->
+        <section id="prefijos" class="section slide">
+            <h2>5. Identificadores, enteros y operadores prefijos</h2>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>parser/parser.go</span></div>
+<pre><code class="language-go">func (p *Parser) parseIdentifier() ast.Expression {
+    return &amp;ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+}
+
+func (p *Parser) parseIntegerLiteral() ast.Expression {
+    lit := &amp;ast.IntegerLiteral{Token: p.curToken}
+
+    value, err := strconv.ParseInt(p.curToken.Literal, 0, 64)
+    if err != nil {
+        msg := fmt.Sprintf("could not parse %q as integer", p.curToken.Literal)
+        p.errors = append(p.errors, msg)
+        return nil
+    }
+    lit.Value = value
+    return lit
+}</code></pre>
+                </div>
+                <div class="code-block">
+                    <div class="code-header"><span>parser/parser.go</span></div>
+<pre><code class="language-go">func (p *Parser) parsePrefixExpression() ast.Expression {
+    expression := &amp;ast.PrefixExpression{
+        Token:    p.curToken,
+        Operator: p.curToken.Literal,
+    }
+
+    p.nextToken()
+
+    expression.Right = p.parseExpression(PREFIX)
+
+    return expression
+}
+
+func (p *Parser) noPrefixParseFnError(t token.TokenType) {
+    msg := fmt.Sprintf("no prefix parse function for %s found", t)
+    p.errors = append(p.errors, msg)
+}</code></pre>
+                </div>
+            </div>
+            <div class="warn-box">
+                <strong>Convención fundamental:</strong> toda función de parsing <em>empieza</em> con <code>curToken</code> en el token que la disparó y <em>termina</em> con <code>curToken</code> en el <strong>último token de su expresión</strong>. Nunca avanzan de más.
+            </div>
+            <p>Fíjate en <code>parseExpression(PREFIX)</code>: el operando derecho de <code>-</code> se parsea con precedencia alta, por eso <code>-a * b</code> produce <code>((-a) * b)</code> y no <code>(-(a * b))</code>.</p>
+        </section>
+
+        <!-- ==================== 6. INFIJOS ==================== -->
+        <section id="infijos" class="section slide">
+            <h2>6. Operadores infijos</h2>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>ast/ast.go</span></div>
+<pre><code class="language-go">type InfixExpression struct {
+    Token    token.Token // el operador, ej. +
+    Left     Expression
+    Operator string
+    Right    Expression
+}
+
+func (ie *InfixExpression) String() string {
+    var out bytes.Buffer
+    out.WriteString("(")
+    out.WriteString(ie.Left.String())
+    out.WriteString(" " + ie.Operator + " ")
+    out.WriteString(ie.Right.String())
+    out.WriteString(")")
+    return out.String()
+}</code></pre>
+                </div>
+                <div class="code-block">
+                    <div class="code-header"><span>parser/parser.go</span></div>
+<pre><code class="language-go">func (p *Parser) parseInfixExpression(left ast.Expression) ast.Expression {
+    expression := &amp;ast.InfixExpression{
+        Token:    p.curToken,
+        Operator: p.curToken.Literal,
+        Left:     left,
+    }
+
+    precedence := p.curPrecedence()
+    p.nextToken()
+    expression.Right = p.parseExpression(precedence)
+
+    return expression
+}</code></pre>
+                </div>
+            </div>
+            <div class="analogy-box">
+                <strong>Asociatividad a la izquierda:</strong> el lado derecho se parsea con la <em>misma</em> precedencia del operador. En <code>1 + 2 + 3</code> el segundo <code>+</code> no es “más fuerte” que el primero, así que el árbol queda <code>((1 + 2) + 3)</code>. Si pasáramos <code>precedence - 1</code> obtendríamos asociatividad a la derecha: <code>(1 + (2 + 3))</code>.
+            </div>
+        </section>
+
+        <!-- ==================== 7. CORAZÓN ==================== -->
+        <section id="corazon" class="section slide">
+            <h2>7. El corazón del Pratt parser: <code>parseExpression</code></h2>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>parser/parser.go — versión final</span></div>
+<pre><code class="language-go">func (p *Parser) parseExpression(precedence int) ast.Expression {
+    prefix := p.prefixParseFns[p.curToken.Type]
+    if prefix == nil {
+        p.noPrefixParseFnError(p.curToken.Type)
+        return nil
+    }
+    leftExp := prefix()
+
+    for !p.peekTokenIs(token.SEMICOLON) &amp;&amp; precedence &lt; p.peekPrecedence() {
+        infix := p.infixParseFns[p.peekToken.Type]
+        if infix == nil {
+            return leftExp
+        }
+
+        p.nextToken()
+
+        leftExp = infix(leftExp)
+    }
+
+    return leftExp
+}</code></pre>
+                </div>
+                <div>
+                    <ol class="steps">
+                        <li><strong>Prefijo:</strong> busca la función prefix del token actual y obtiene un primer <code>leftExp</code>.</li>
+                        <li><strong>¿Seguimos?</strong> Mientras el siguiente token <em>no</em> sea <code>;</code> y su precedencia sea <strong>mayor</strong> que la nuestra…</li>
+                        <li><strong>Infijo:</strong> avanza y deja que el operador “absorba” <code>leftExp</code> como su lado izquierdo.</li>
+                        <li><strong>Retorna</strong> cuando encuentra un operador igual o más débil: ese operador le pertenece a una llamada de más arriba.</li>
+                    </ol>
+                    <div class="info-box">
+                        <strong>Una frase para recordarlo:</strong> <code>precedence</code> es la “fuerza con la que la llamada actual se aferra a lo que tiene a la derecha”. Si el siguiente operador jala más fuerte, se lleva el <code>leftExp</code>.
+                    </div>
+                </div>
+            </div>
+            <div class="code-block">
+                <div class="code-header"><span>parser/parser.go — la sentencia que lo dispara</span></div>
+<pre><code class="language-go">func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
+    stmt := &amp;ast.ExpressionStatement{Token: p.curToken}
+    stmt.Expression = p.parseExpression(LOWEST)
+
+    if p.peekTokenIs(token.SEMICOLON) { // el ; es opcional (cómodo en el REPL)
+        p.nextToken()
+    }
+    return stmt
+}</code></pre>
+            </div>
+        </section>
+
+        <!-- ==================== 8. TRAZA ==================== -->
+        <section id="traza" class="section slide">
+            <h2>8. Traza a mano: <code>1 + 2 * 3</code></h2>
+            <div class="grid-2">
+                <div class="table-wrap">
+                    <table class="trace-table">
+                        <thead><tr><th>#</th><th>Llamada</th><th>cur / peek</th><th>Decisión</th></tr></thead>
+                        <tbody>
+                            <tr><td>1</td><td>parseExpression(LOWEST)</td><td>1 / +</td><td>prefijo → <code>1</code></td></tr>
+                            <tr><td>2</td><td>· bucle</td><td>1 / +</td><td>SUM &gt; LOWEST → infijo <code>+</code></td></tr>
+                            <tr><td>3</td><td>· parseInfix(left=1)</td><td>+ / 2</td><td>guarda SUM, avanza</td></tr>
+                            <tr><td>4</td><td>· · parseExpression(SUM)</td><td>2 / *</td><td>prefijo → <code>2</code></td></tr>
+                            <tr><td>5</td><td>· · bucle</td><td>2 / *</td><td>PRODUCT &gt; SUM → infijo <code>*</code></td></tr>
+                            <tr><td>6</td><td>· · parseInfix(left=2)</td><td>* / 3</td><td>guarda PRODUCT, avanza</td></tr>
+                            <tr><td>7</td><td>· · · parseExpression(PRODUCT)</td><td>3 / EOF</td><td>prefijo → <code>3</code>, retorna</td></tr>
+                            <tr><td>8</td><td>· · retorna</td><td>3 / EOF</td><td><code>(2 * 3)</code></td></tr>
+                            <tr><td>9</td><td>· retorna</td><td>3 / EOF</td><td><code>(1 + (2 * 3))</code></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div>
+                    <div class="ast-tree" role="img" aria-label="AST de 1 + 2 * 3: suma con hijo izquierdo 1 e hijo derecho la multiplicación 2 * 3">
+                        <ul><li><span class="ast-node op"><b>Infix</b><i>+</i></span>
+                            <ul>
+                                <li><span class="ast-node lit"><b>Integer</b><i>1</i></span></li>
+                                <li><span class="ast-node op"><b>Infix</b><i>*</i></span>
+                                    <ul>
+                                        <li><span class="ast-node lit"><b>Integer</b><i>2</i></span></li>
+                                        <li><span class="ast-node lit"><b>Integer</b><i>3</i></span></li>
+                                    </ul>
+                                </li>
+                            </ul>
+                        </li></ul>
+                    </div>
+                    <div class="card glass">
+                        <h3>Compara con <code>1 * 2 + 3</code></h3>
+                        <p>En el paso 5 el siguiente operador sería <code>+</code> (SUM), que <strong>no</strong> es mayor que PRODUCT. La llamada interna retorna <code>2</code> sin más y el árbol queda <code>((1 * 2) + 3)</code>.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 9. VISUALIZADOR ==================== -->
+        <section id="visualizador" class="section slide">
+            <h2>9. Visualizador interactivo de Pratt Parsing</h2>
+            <p>Escribe una expresión Monkey. El visualizador ejecuta el <strong>mismo algoritmo del libro</strong> (portado a JavaScript) y muestra cada llamada recursiva, el <code>String()</code> resultante y el AST.</p>
+            <div class="playground">
+                <label for="pratt-input" class="viz-label">Expresión</label>
+                <textarea id="pratt-input" class="playground-input" spellcheck="false" aria-describedby="pratt-output">1 + 2 * 3</textarea>
+                <div class="playground-actions">
+                    <button type="button" class="btn-pill" data-pratt="-a * b">-a * b</button>
+                    <button type="button" class="btn-pill" data-pratt="a + b * c + d / e - f">a + b * c + d / e - f</button>
+                    <button type="button" class="btn-pill" data-pratt="5 &gt; 4 == 3 &lt; 4">5 &gt; 4 == 3 &lt; 4</button>
+                    <button type="button" class="btn-pill" data-pratt="(5 + 5) * 2">(5 + 5) * 2</button>
+                    <button type="button" class="btn-pill" data-pratt="a + add(b * c) + d">a + add(b * c) + d</button>
+                    <button type="button" class="btn-pill" data-pratt="!-a">!-a</button>
+                    <button type="button" class="btn-pill" data-pratt="if (x &lt; y) { x } else { y }">if / else</button>
+                </div>
+                <div class="viz-label">String() del programa</div>
+                <div class="viz-output" id="pratt-output" aria-live="polite"></div>
+                <div class="viz-grid">
+                    <div>
+                        <div class="viz-label">Traza de llamadas</div>
+                        <div class="viz-panel"><table class="trace-table"><tbody id="pratt-trace"></tbody></table></div>
+                    </div>
+                    <div>
+                        <div class="viz-label">AST</div>
+                        <div class="viz-panel"><div class="ast-tree" id="pratt-tree"></div></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 10. EXTENDER ==================== -->
+        <section id="extender" class="section slide">
+            <h2>10. Extendiendo el parser: booleanos, agrupación e <code>if</code></h2>
+            <p>Gracias a Pratt, agregar una construcción nueva es casi siempre <strong>registrar una función</strong>. Sin tocar <code>parseExpression</code>.</p>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>parser/parser.go</span></div>
+<pre><code class="language-go">// Booleanos: registerPrefix(token.TRUE / token.FALSE, ...)
+func (p *Parser) parseBoolean() ast.Expression {
+    return &amp;ast.Boolean{Token: p.curToken, Value: p.curTokenIs(token.TRUE)}
+}
+
+// Agrupación: registerPrefix(token.LPAREN, ...)
+func (p *Parser) parseGroupedExpression() ast.Expression {
+    p.nextToken()
+
+    exp := p.parseExpression(LOWEST)
+
+    if !p.expectPeek(token.RPAREN) {
+        return nil
+    }
+    return exp
+}</code></pre>
+                </div>
+                <div class="code-block">
+                    <div class="code-header"><span>parser/parser.go — registerPrefix(token.IF, ...)</span></div>
+<pre><code class="language-go">func (p *Parser) parseIfExpression() ast.Expression {
+    expression := &amp;ast.IfExpression{Token: p.curToken}
+
+    if !p.expectPeek(token.LPAREN) {
+        return nil
+    }
+    p.nextToken()
+    expression.Condition = p.parseExpression(LOWEST)
+
+    if !p.expectPeek(token.RPAREN) {
+        return nil
+    }
+    if !p.expectPeek(token.LBRACE) {
+        return nil
+    }
+    expression.Consequence = p.parseBlockStatement()
+
+    if p.peekTokenIs(token.ELSE) {
+        p.nextToken()
+        if !p.expectPeek(token.LBRACE) {
+            return nil
+        }
+        expression.Alternative = p.parseBlockStatement()
+    }
+    return expression
+}
+
+func (p *Parser) parseBlockStatement() *ast.BlockStatement {
+    block := &amp;ast.BlockStatement{Token: p.curToken}
+    block.Statements = []ast.Statement{}
+    p.nextToken()
+
+    for !p.curTokenIs(token.RBRACE) &amp;&amp; !p.curTokenIs(token.EOF) {
+        stmt := p.parseStatement()
+        if stmt != nil {
+            block.Statements = append(block.Statements, stmt)
+        }
+        p.nextToken()
+    }
+    return block
+}</code></pre>
+                </div>
+            </div>
+            <div class="tip-box">
+                <strong>La agrupación no crea nodo:</strong> los paréntesis solo hacen que el contenido se parsee con <code>LOWEST</code>, como una expresión nueva. Su efecto queda “codificado” en la forma del árbol.
+            </div>
+        </section>
+
+        <!-- ==================== 11. FUNCIONES ==================== -->
+        <section id="funciones" class="section slide">
+            <h2>11. Literales de función y expresiones de llamada</h2>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>parser/parser.go — registerPrefix(token.FUNCTION, ...)</span></div>
+<pre><code class="language-go">func (p *Parser) parseFunctionLiteral() ast.Expression {
+    lit := &amp;ast.FunctionLiteral{Token: p.curToken}
+
+    if !p.expectPeek(token.LPAREN) {
+        return nil
+    }
+    lit.Parameters = p.parseFunctionParameters()
+
+    if !p.expectPeek(token.LBRACE) {
+        return nil
+    }
+    lit.Body = p.parseBlockStatement()
+    return lit
+}
+
+func (p *Parser) parseFunctionParameters() []*ast.Identifier {
+    identifiers := []*ast.Identifier{}
+
+    if p.peekTokenIs(token.RPAREN) {
+        p.nextToken()
+        return identifiers
+    }
+    p.nextToken()
+    ident := &amp;ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+    identifiers = append(identifiers, ident)
+
+    for p.peekTokenIs(token.COMMA) {
+        p.nextToken()
+        p.nextToken()
+        ident := &amp;ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+        identifiers = append(identifiers, ident)
+    }
+
+    if !p.expectPeek(token.RPAREN) {
+        return nil
+    }
+    return identifiers
+}</code></pre>
+                </div>
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>parser/parser.go — registerInfix(token.LPAREN, ...)</span></div>
+<pre><code class="language-go">func (p *Parser) parseCallExpression(function ast.Expression) ast.Expression {
+    exp := &amp;ast.CallExpression{Token: p.curToken, Function: function}
+    exp.Arguments = p.parseCallArguments()
+    return exp
+}</code></pre>
+                    </div>
+                    <div class="card glass">
+                        <h3>¿Por qué la llamada es un <em>infijo</em>?</h3>
+                        <p>En <code>add(2, 3)</code> el <code>(</code> aparece <strong>entre</strong> la expresión <code>add</code> y sus argumentos. Registrarlo como infijo con precedencia <code>CALL</code> (la más alta) hace que <code>a + add(b * c)</code> agrupe la llamada antes que la suma.</p>
+                        <p>Y como el lado izquierdo es <em>cualquier expresión</em>, funciona también <code>fn(x) { x }(5)</code>.</p>
+                    </div>
+                    <div class="warn-box">
+                        <strong>No olvides</strong> agregar <code>token.LPAREN: CALL</code> a la tabla <code>precedences</code>. Sin eso, el bucle de <code>parseExpression</code> nunca llama al infijo.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 12. PRUEBAS ==================== -->
+        <section id="pruebas" class="section slide">
+            <h2>12. Probar la precedencia con <code>String()</code></h2>
+            <div class="code-block">
+                <div class="code-header"><span>parser/parser_test.go (fragmento)</span></div>
+<pre><code class="language-go">func TestOperatorPrecedenceParsing(t *testing.T) {
+    tests := []struct {
+        input    string
+        expected string
+    }{
+        {"-a * b", "((-a) * b)"},
+        {"!-a", "(!(-a))"},
+        {"a + b + c", "((a + b) + c)"},
+        {"a * b / c", "((a * b) / c)"},
+        {"a + b * c + d / e - f", "(((a + (b * c)) + (d / e)) - f)"},
+        {"3 + 4; -5 * 5", "(3 + 4)((-5) * 5)"},
+        {"5 &gt; 4 == 3 &lt; 4", "((5 &gt; 4) == (3 &lt; 4))"},
+        {"1 + (2 + 3) + 4", "((1 + (2 + 3)) + 4)"},
+        {"-(5 + 5)", "(-(5 + 5))"},
+        {"a + add(b * c) + d", "((a + add((b * c))) + d)"},
+    }
+
+    for _, tt := range tests {
+        l := lexer.New(tt.input)
+        p := New(l)
+        program := p.ParseProgram()
+        checkParserErrors(t, p)
+
+        actual := program.String()
+        if actual != tt.expected {
+            t.Errorf("expected=%q, got=%q", tt.expected, actual)
+        }
+    }
+}</code></pre>
+            </div>
+            <div class="tip-box">
+                <strong>Tip de depuración:</strong> el libro incluye <code>parser_tracing.go</code> con funciones <code>trace</code>/<code>untrace</code> que imprimen cada llamada con sangría. Es exactamente lo que hace el visualizador de la diapositiva 9.
+            </div>
+        </section>
+
+        <!-- ==================== 13. RPPL ==================== -->
+        <section id="rppl" class="section slide">
+            <h2>13. Del REPL al RPPL: Read-Parse-Print-Loop</h2>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>repl/repl.go</span></div>
+<pre><code class="language-go">func Start(in io.Reader, out io.Writer) {
+    scanner := bufio.NewScanner(in)
+
+    for {
+        fmt.Fprintf(out, PROMPT)
+        scanned := scanner.Scan()
+        if !scanned {
+            return
+        }
+
+        line := scanner.Text()
+        l := lexer.New(line)
+        p := parser.New(l)
+
+        program := p.ParseProgram()
+        if len(p.Errors()) != 0 {
+            printParserErrors(out, p.Errors())
+            continue
+        }
+
+        io.WriteString(out, program.String())
+        io.WriteString(out, "\n")
+    }
+}
+
+func printParserErrors(out io.Writer, errors []string) {
+    io.WriteString(out, MONKEY_FACE)
+    io.WriteString(out, "Woops! We ran into some monkey business here!\n")
+    io.WriteString(out, " parser errors:\n")
+    for _, msg := range errors {
+        io.WriteString(out, "\t"+msg+"\n")
+    }
+}</code></pre>
+                </div>
+                <div class="code-block">
+                    <div class="code-header"><span>Terminal</span></div>
+<pre><code class="language-plaintext">$ go run main.go
+Hello mrnugget! This is the Monkey programming language!
+Feel free to type in commands
+&gt;&gt; let x = 1 * 2 * 3 * 4 * 5
+let x = ((((1 * 2) * 3) * 4) * 5);
+&gt;&gt; x * y / 2 + 3 * 8 - 123
+((((x * y) / 2) + (3 * 8)) - 123)
+&gt;&gt; let x 12 * 3;
+            __,__
+   .--.  .-"     "-.  .--.
+  / .. \/  .-. .-.  \/ .. \
+ | |  '|  /   Y   \  |'  | |
+ | \   \  \ 0 | 0 /  /   / |
+  \ '- ,\.-"""""""-./, -' /
+   ''-' /_   ^ ^   _\ '-''
+       |  \._   _./  |
+       \   \ '~' /   /
+        '._ '-=-' _.'
+           '-----'
+Woops! We ran into some monkey business here!
+ parser errors:
+	expected next token to be =, got INT instead</code></pre>
+                </div>
+            </div>
+        </section>
+
+        <!-- CORRER:INICIO -->
+        <!-- Generado por scripts/build_correr.py: no editar a mano. -->
+        <section id="correr" class="section slide">
+            <h2>Córrelo en ZeldaInterpreter</h2>
+            <p>Comprueba la precedencia de tu Pratt parser: <code>-modo=ast</code> muestra la expresión con paréntesis explícitos y <code>-modo=arbol</code> la dibuja.</p>
+            
+            <div class="grid-2 correr-grid">
+<div><div class="code-block"><div class="code-header"><span>terminal · primero, las pruebas (deben salir en ok)</span></div>
+<pre><code class="language-bash">cd zeldainterpreter
+go test ./parser/</code></pre></div></div>
+<div><div class="code-block"><div class="code-header"><span>salida</span></div>
+<pre><code class="language-plaintext">ok  	zeldainterpreter/parser</code></pre></div></div>
+            </div>
+            <div class="grid-2 correr-grid">
+<div class="card">
+<h3>Precedencia con paréntesis</h3>
+<p>Prefijo (<code>PREFIX</code>) antes que producto (<code>PRODUCT</code>) antes que suma (<code>SUM</code>).</p>
+<div class="code-block"><div class="code-header"><span>terminal</span></div>
+<pre><code class="language-bash">go run . -modo=ast -e &#x27;-a * b + c / d&#x27;</code></pre></div>
+<div class="code-block"><div class="code-header"><span>salida</span></div>
+<pre><code class="language-plaintext">(((-a) * b) + (c / d))</code></pre></div>
+</div>
+<div class="card">
+<h3>1 + 2 * 3 como árbol</h3>
+<p>El <code>*</code> queda <strong>más abajo</strong> en el árbol: se evalúa primero.</p>
+<div class="code-block"><div class="code-header"><span>terminal</span></div>
+<pre><code class="language-bash">go run . -modo=arbol -e &#x27;1 + 2 * 3&#x27;</code></pre></div>
+<div class="code-block"><div class="code-header"><span>salida</span></div>
+<pre><code class="language-plaintext">Program
+└── ExpressionStatement
+    └── InfixExpression +
+        ├── izq: IntegerLiteral 1
+        └── der: InfixExpression *
+            ├── izq: IntegerLiteral 2
+            └── der: IntegerLiteral 3</code></pre></div>
+</div>
+<div class="card">
+<h3>if, fn y llamadas</h3>
+<p><code>IfExpression</code>, <code>BlockStatement</code> y <code>CallExpression</code>, todos producidos por funciones <em>prefix</em>/<em>infix</em>.</p>
+<div class="code-block"><div class="code-header"><span>terminal</span></div>
+<pre><code class="language-bash">go run . -modo=arbol -e &#x27;if (x &lt; y) { add(x, 2) } else { y }&#x27;</code></pre></div>
+<div class="code-block"><div class="code-header"><span>salida</span></div>
+<pre><code class="language-plaintext">Program
+└── ExpressionStatement
+    └── IfExpression
+        ├── condición: InfixExpression &lt;
+        │   ├── izq: Identifier x
+        │   └── der: Identifier y
+        ├── entonces: BlockStatement
+        │   └── ExpressionStatement
+        │       └── CallExpression
+        │           ├── función: Identifier add
+        │           ├── argumento: Identifier x
+        │           └── argumento: IntegerLiteral 2
+        └── sino: BlockStatement
+            └── ExpressionStatement
+                └── Identifier y</code></pre></div>
+</div>
+<div class="card">
+<h3>La consola cambia de modo</h3>
+<p>Con <code>:modo</code> pasas de <code>ast</code> a <code>arbol</code> sin salir del REPL.</p>
+<div class="code-block"><div class="code-header"><span>terminal</span></div>
+<pre><code class="language-bash">go run . -modo=ast</code></pre></div>
+<div class="code-block"><div class="code-header"><span>consola interactiva</span></div>
+<pre><code class="language-plaintext">ZeldaInterpreter · intérprete del lenguaje Monkey
+Modo actual: ast. Escribe :ayuda para ver los comandos, :salir para terminar.
+&gt;&gt; a + b * c
+(a + (b * c))
+&gt;&gt; :modo arbol
+Modo cambiado a: arbol
+&gt;&gt; -x
+Program
+└── ExpressionStatement
+    └── PrefixExpression -
+        └── operando: Identifier x
+&gt;&gt; :salir
+¡Hasta pronto!</code></pre></div>
+</div>
+</div>
+            <div class="info-box"><strong>¿Y mi propio intérprete?</strong> Si construyes el tuyo siguiendo el libro, los mismos comandos funcionan sobre tu código a medida que avanzas. <code>zeldainterpreter/</code> es la versión de referencia completa para comparar resultados.</div>
+        </section>
+        <!-- CORRER:FIN -->
+
+
+        <!-- ==================== SIMULADOR ZELDAINTERPRETER ==================== -->
+        <section id="simulador-zelda" class="section slide">
+            <h2>Simulador ZeldaInterpreter</h2>
+            <p>Escribe expresiones con precedencia en la pestaña <strong>AST</strong> y comprueba que <code>String()</code> coincide con lo que produce tu Pratt parser.</p>
+            <div data-simulator data-stage="ast" data-code="1 + 2 * 3 - -4 / (5 - 1)"></div>
+        </section>
+
+        <!-- ==================== 14. RESUMEN ==================== -->
+        <section id="resumen" class="section slide">
+            <h2>14. Ideas clave de la semana</h2>
+            <div class="key-ideas">
+                <div class="key-idea"><h3>Funciones por token</h3><p>Cada tipo de token puede tener una función <code>prefix</code> y una <code>infix</code>.</p></div>
+                <div class="key-idea"><h3>Precedencia = fuerza</h3><p>El bucle continúa solo si el siguiente operador atrae más fuerte que el actual.</p></div>
+                <div class="key-idea"><h3>Asociatividad</h3><p>Pasar la misma precedencia al lado derecho da asociatividad a la izquierda.</p></div>
+                <div class="key-idea"><h3>Extender = registrar</h3><p><code>if</code>, <code>fn</code>, <code>( )</code> y llamadas se agregan sin tocar <code>parseExpression</code>.</p></div>
+                <div class="key-idea"><h3><code>String()</code> para probar</h3><p>Los paréntesis explícitos hacen visible la forma del árbol en una prueba.</p></div>
+                <div class="key-idea"><h3>Parser completo</h3><p>Al final del Cap. 2 tenemos un AST completo de cualquier programa Monkey.</p></div>
+            </div>
+        </section>
+
+        <!-- ==================== 15. TALLER ==================== -->
+        <section id="taller" class="section slide">
+            <h2>15. Taller Práctico — Semana 5</h2>
+            <div class="card glass">
+                <h3><span data-icon="wrench"></span>Entregable: parser completo del Capítulo 2</h3>
+                <ol class="steps">
+                    <li>Implementa <code>parseExpression</code> con las tablas <code>prefixParseFns</code>/<code>infixParseFns</code> y <code>precedences</code>.</li>
+                    <li>Agrega identificadores, enteros, prefijos, infijos, booleanos, agrupación, <code>if/else</code>, literales de función y llamadas.</li>
+                    <li>Haz pasar <code>TestOperatorPrecedenceParsing</code> y las pruebas de cada nodo del libro.</li>
+                    <li>Actualiza el REPL a RPPL con la cara de mono para errores.</li>
+                    <li><strong>Reto:</strong> agrega el operador de módulo <code>%</code> con precedencia <code>PRODUCT</code> y el operador de potencia <code>**</code> asociativo a la derecha (pista: <code>precedence - 1</code>).</li>
+                </ol>
+            </div>
+
+            <div class="exercise-cta">
+                <div>
+                    <h3>Guía de ejercicios · Semana 5</h3>
+                    <p>Trazas de <code>parseExpression</code>, dibujo de ASTs, predicción de <code>String()</code> y retos de extensión del parser.</p>
+                </div>
+                <a class="btn-download" data-pdf-link href="#"><span data-icon="file-down"></span>Descargar PDF</a>
+            </div>
+
+            <div class="tip-box">
+                <strong>Próxima semana (Semana 6 · Cap. 3A):</strong> ¡el AST cobra vida! Construimos el sistema de objetos y un evaluador <em>tree-walking</em> que recorre el árbol y calcula resultados.
+            </div>
+        </section>
+
+        <nav class="class-footer-nav" data-course-footer aria-label="Navegación entre clases"></nav>
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/go.min.js"></script>
+    <script src="../assets/course.js"></script>
+    <script src="../assets/presentation.js"></script>
+    <script src="../assets/simulator.js"></script>
+    <script src="../assets/monkey.js"></script>
+    <script>
+        (function () {
+            const input = document.getElementById('pratt-input');
+            const out = document.getElementById('pratt-output');
+            const traceEl = document.getElementById('pratt-trace');
+            const treeEl = document.getElementById('pratt-tree');
+            const COLORS = { enter: 'var(--primary)', prefix: 'var(--text-soft)', loop: 'var(--warning)', infix: 'var(--accent)', stop: 'var(--success)', stmt: 'var(--text-muted)' };
+
+            function render() {
+                const r = Monkey.parse(input.value, { trace: true });
+                if (r.errors.length) {
+                    out.textContent = r.errors.join('\n');
+                    out.classList.add('error');
+                    input.setAttribute('aria-invalid', 'true');
+                } else {
+                    out.textContent = Monkey.str(r.program) || '(programa vacío)';
+                    out.classList.remove('error');
+                    input.removeAttribute('aria-invalid');
+                }
+                traceEl.innerHTML = r.trace.map((e, i) =>
+                    `<tr><td class="trace-depth">${i + 1}</td><td style="color:${COLORS[e.kind]};padding-left:${0.7 + e.depth * 1.1}rem">${Monkey.esc(e.text)}</td></tr>`).join('');
+                treeEl.innerHTML = r.program.statements.length === 1
+                    ? Monkey.treeHtml(r.program.statements[0])
+                    : Monkey.treeHtml(r.program);
+            }
+            input.addEventListener('input', render);
+            document.querySelectorAll('[data-pratt]').forEach((b) => b.addEventListener('click', () => { input.value = b.dataset.pratt; render(); }));
+            render();
+        })();
+    </script>
+</body>
+</html>

@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Semana 1: Fundamentos de Go | ZeldaInterpreter · Lenguajes y Compiladores 2027-1</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css">
+    <link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body data-week="1">
+    <a class="skip-link" href="#contenido">Saltar al contenido</a>
+
+    <aside class="sidebar">
+        <div class="logo">
+            <a href="../index.html">
+                <h1 class="brand"><span class="brand-logo" data-logo="56"></span><span class="brand-name">ZeldaInterpreter</span></h1><p class="logo-subtitle">Semana 01 · Bloque I (Go)</p>
+            </a>
+        </div>
+
+        <a href="../index.html" class="back-link"><span data-icon="home"></span>Portal del Curso</a>
+
+        <button type="button" class="present-btn" id="toggle-slides-btn" aria-pressed="false">
+            <span data-icon="presentation"></span>Modo Presentación <kbd>P</kbd>
+        </button>
+        <a class="pdf-btn" data-pdf-link href="#"><span data-icon="file-down"></span>Ejercicios de la semana (PDF)</a>
+
+        <nav>
+            <div class="nav-group-title">Contenido de la Clase</div>
+            <ul>
+                <li><a href="#portada" class="active">Portada</a></li>
+                <li><a href="#por-que-go">1. ¿Por qué Go?</a></li>
+                <li><a href="#entorno">2. Módulos y Paquetes</a></li>
+                <li><a href="#variables-tipos">3. Variables y Tipos Clave</a></li>
+                <li><a href="#strings-bytes">4. Strings y Bytes (Clave Lexer)</a></li>
+                <li><a href="#control-flujo">5. Control de Flujo</a></li>
+                <li><a href="#funciones">6. Funciones y Errores</a></li>
+                <li><a href="#slices">7. Slices (Arreglos Dinámicos)</a></li>
+                <li><a href="#maps">8. Maps (Tablas Hash)</a></li>
+                <li><a href="#simulador-zelda">Simulador ZeldaInterpreter</a></li>
+                <li><a href="#taller">9. Taller de la Semana 1</a></li>
+            </ul>
+            <div data-course-nav></div>
+        </nav>
+
+        <div class="sidebar-footer">
+            Semana 1 de 8 · Fundamentos de Go
+        </div>
+    </aside>
+
+    <main class="content" id="contenido">
+
+        <!-- ==================== SLIDE 1: PORTADA ==================== -->
+        <header id="portada" class="hero slide">
+            <div class="hero-badge accent">Semana 01 · Bloque I: Dominando Go</div>
+            <h1>Fundamentos de <span class="gradient-text">Go</span> para Compiladores</h1>
+            <p>Antes de construir el intérprete de Monkey, aprenderemos las piezas esenciales de Go: su modelo de paquetes, tipos de bajo nivel, control de flujo, slices y maps, todo orientado directamente a lo que necesitaremos en el Lexer, Parser y Evaluador.</p>
+            <div class="hero-meta">
+                <span class="meta-pill"><span data-icon="clock"></span>Duración: Semana 1 (2 sesiones)</span>
+                <span class="meta-pill"><span data-icon="book"></span>Referencia: Intro de <em>Writing An Interpreter In Go</em></span>
+                <span class="meta-pill"><span data-icon="wrench"></span>Objetivo: Primer programa y estructuras base en Go</span>
+            </div>
+        </header>
+
+        <!-- ==================== SLIDE 2: POR QUÉ GO ==================== -->
+        <section id="por-que-go" class="section slide">
+            <h2>1. ¿Por qué usar Go para escribir un Intérprete?</h2>
+            <p>En la introducción del libro, Thorsten Ball explica por qué eligió <strong>Go</strong> en lugar de C, Java o Python. La razón principal es su <strong>simplicidad deliberada</strong>:</p>
+
+            <div class="grid-2">
+                <div class="card card-primary">
+                    <h3 style="color: var(--primary);">Ventajas para Aprender</h3>
+                    <ul class="feature-list">
+                        <li><strong>Cero dependencias externas:</strong> Solo usamos la biblioteca estándar de Go.</li>
+                        <li><strong>Testing integrado:</strong> El comando <code>go test</code> viene listo de fábrica.</li>
+                        <li><strong>Formato universal:</strong> <code>gofmt</code> elimina discusiones de estilo.</li>
+                        <li><strong>Sin "magia":</strong> No hay metaprogramación oculta ni jerarquías complejas de herencia.</li>
+                    </ul>
+                </div>
+                <div class="card card-accent">
+                    <h3 style="color: var(--accent);">Transferible a Otros Lenguajes</h3>
+                    <p>El código Go que escribiremos se traduce casi 1 a 1 a lenguajes de sistemas como <strong>C, C++ y Rust</strong>, o lenguajes modernos como TypeScript y Java.</p>
+                    <p>Además, Go compila a binario nativo en milisegundos y cuenta con <strong>Garbage Collector</strong>, lo que nos simplificará la vida en la Semana 7.</p>
+                </div>
+            </div>
+
+            <div class="info-box">
+                <strong>Enfoque de estas 2 semanas:</strong> No estudiaremos concurrencia avanzada ni desarrollo web en Go; nos concentraremos al 100% en las herramientas exactas que hacen brillar un intérprete.
+            </div>
+        </section>
+
+        <!-- ==================== SLIDE 3: ENTORNO Y PAQUETES ==================== -->
+        <section id="entorno" class="section slide">
+            <h2>2. Instalación, Módulos y Paquetes</h2>
+            <p>Todo proyecto moderno en Go se organiza alrededor de un <strong>módulo</strong> (archivo <code>go.mod</code>) y uno o más <strong>paquetes</strong> (carpetas).</p>
+
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>Terminal · Crear proyecto</span></div>
+<pre><code class="language-bash"># 1. Verificar versión de Go (&gt;= 1.20 recomendado)
+go version
+
+# 2. Crear carpeta e inicializar módulo
+mkdir monkey && cd monkey
+go mod init monkey
+
+# 3. Ejecutar el programa principal
+go run main.go</code></pre>
+                </div>
+
+                <div class="code-block">
+                    <div class="code-header"><span>main.go</span></div>
+<pre><code class="language-go">package main
+
+import "fmt"
+
+func main() {
+    fmt.Println("¡Hola, Monkey!")
+}</code></pre>
+                </div>
+            </div>
+
+            <div class="card card-warning">
+                <h3>Regla de Oro de Visibilidad en Go (¡Sin <code>public</code> ni <code>private</code>!)</h3>
+                <ul class="feature-list">
+                    <li><strong>Empieza con MAYÚSCULA</strong> (ej. <code>NextToken()</code>, <code>Token</code>): es <strong>exportado (público)</strong>, visible desde otros paquetes.</li>
+                    <li><strong>Empieza con minúscula</strong> (ej. <code>readChar()</code>, <code>isLetter()</code>): es <strong>privado al paquete</strong>.</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- ==================== SLIDE 4: VARIABLES Y TIPOS ==================== -->
+        <section id="variables-tipos" class="section slide">
+            <h2>3. Variables, Constantes y Tipos Básicos</h2>
+            <p>Go es un lenguaje <strong>estáticamente tipado</strong>: toda variable tiene un tipo conocido en tiempo de compilación, pero la inferencia con <code>:=</code> lo hace muy ágil.</p>
+
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>variables.go</span></div>
+<pre><code class="language-go">// Declaración explícita (toma su "zero value")
+var edad int64        // 0
+var activo bool       // false
+var nombre string     // ""
+var ch byte           // 0 (NUL en ASCII)
+
+// Declaración corta con inferencia (solo dentro de funciones)
+x := 42               // int
+literal := "let"      // string
+
+// Constantes (muy usadas para TokenType)
+const (
+    LET   = "LET"
+    IDENT = "IDENT"
+    INT   = "INT"
+)</code></pre>
+                </div>
+
+                <div class="card glass">
+                    <h3>Tipos que más usaremos en Monkey</h3>
+                    <div class="table-wrap">
+                        <table>
+                            <tr><th>Tipo</th><th>Uso en el Intérprete</th></tr>
+                            <tr><td><code>string</code></td><td>Código fuente, literales de tokens, errores</td></tr>
+                            <tr><td><code>byte</code></td><td>Carácter actual (<code>l.ch</code>) en el Lexer (alias de <code>uint8</code>)</td></tr>
+                            <tr><td><code>int</code></td><td>Índices de posición (<code>position</code>, <code>readPosition</code>)</td></tr>
+                            <tr><td><code>int64</code></td><td>Valores enteros de Monkey (<code>object.Integer</code>)</td></tr>
+                            <tr><td><code>bool</code></td><td>Condiciones y booleanos de Monkey</td></tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="warn-box">
+                <strong>Ojo en Go:</strong> No existen variables sin usar ni imports sin usar. Si declaras una variable y no la lees, <strong>el compilador no compila</strong>. Usa el identificador blanco <code>_</code> cuando quieras ignorar un valor intencionalmente.
+            </div>
+        </section>
+
+        <!-- ==================== SLIDE 5: STRINGS Y BYTES ==================== -->
+        <section id="strings-bytes" class="section slide">
+            <h2>4. Strings, Bytes y Slicing (El Pan Diario del Lexer)</h2>
+            <p>En la Semana 3 nuestro Lexer leerá el código fuente carácter por carácter. Comprender cómo funcionan <code>string</code>, <code>byte</code> y los recortes (<em>slices</em>) de texto es fundamental.</p>
+
+            <div class="code-block">
+                <div class="code-header"><span>strings_lexer_preview.go</span></div>
+<pre><code class="language-go">input := "let x = 5;"
+
+// 1. Acceder por índice devuelve un byte (ASCII)
+var ch byte = input[0]        // 'l' (código ASCII 108)
+fmt.Println(ch, string(ch))   // 108 l
+
+// 2. Comparar bytes con literales de carácter (comillas simples)
+esLetra := 'a' &lt;= ch && ch &lt;= 'z'  // true
+esDigito := '0' &lt;= ch && ch &lt;= '9' // false
+
+// 3. Slicing [inicio:fin] — incluye inicio, EXCLUYE fin
+palabra := input[0:3]         // "let"
+resto   := input[4:]          // "x = 5;"
+
+// 4. Longitud en bytes
+fmt.Println(len(input))       // 10</code></pre>
+            </div>
+
+            <div class="analogy-box">
+                <strong>Conexión directa con el libro:</strong> En Monkey, el método <code>readIdentifier()</code> guarda la posición inicial, avanza mientras <code>isLetter(l.ch)</code> sea verdadero y al final simplemente retorna <code>l.input[position:l.position]</code>. ¡Sin copiar caracteres uno a uno!
+            </div>
+        </section>
+
+        <!-- ==================== SLIDE 6: CONTROL DE FLUJO ==================== -->
+        <section id="control-flujo" class="section slide">
+            <h2>5. Control de Flujo: <code>if</code>, <code>for</code> y <code>switch</code></h2>
+            <p>Go simplifica el control de flujo: sin paréntesis obligatorios alrededor de condiciones, llaves <code>{ }</code> siempre obligatorias, y <strong>solo existe una palabra reservada para ciclos: <code>for</code></strong>.</p>
+
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>if_y_for.go</span></div>
+<pre><code class="language-go">// if con declaración previa (¡muy idiomático en Go!)
+if val, ok := keywords[ident]; ok {
+    return val
+}
+
+// for clásico (3 partes)
+for i := 0; i &lt; 5; i++ {
+    fmt.Println(i)
+}
+
+// for como "while"
+for isLetter(ch) {
+    pos++
+}
+
+// for infinito (así funciona nuestro REPL)
+for {
+    // leer línea, evaluar, imprimir...
+    break
+}</code></pre>
+                </div>
+
+                <div class="code-block">
+                    <div class="code-header"><span>switch.go</span></div>
+<pre><code class="language-go">// switch NO requiere "break" (no hace fall-through)
+switch ch {
+case '=':
+    fmt.Println("Asignación")
+case '+', '-':
+    fmt.Println("Suma o resta")
+case 0:
+    fmt.Println("Fin de archivo (EOF)")
+default:
+    fmt.Println("Otro carácter")
+}
+
+// switch sin expresión (reemplaza cadenas if/else if)
+switch {
+case n &lt; 0:
+    fmt.Println("Negativo")
+case n == 0:
+    fmt.Println("Cero")
+default:
+    fmt.Println("Positivo")
+}</code></pre>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== SLIDE 7: FUNCIONES ==================== -->
+        <section id="funciones" class="section slide">
+            <h2>6. Funciones, Múltiples Retornos y Errores</h2>
+            <p>En Go no existen excepciones (<code>try / catch</code>). En su lugar, las funciones pueden devolver <strong>múltiples valores</strong>, donde el último suele ser un <code>error</code>.</p>
+
+            <div class="code-block">
+                <div class="code-header"><span>funciones.go</span></div>
+<pre><code class="language-go">package main
+
+import (
+    "fmt"
+    "strconv"
+)
+
+// Parámetros del mismo tipo pueden compartir declaración
+func sumar(a, b int64) int64 {
+    return a + b
+}
+
+// Retorno múltiple: resultado + error
+func parsearEntero(literal string) (int64, error) {
+    valor, err := strconv.ParseInt(literal, 0, 64)
+    if err != nil {
+        return 0, fmt.Errorf("no se pudo parsear %q como entero", literal)
+    }
+    return valor, nil
+}</code></pre>
+            </div>
+
+            <div class="tip-box">
+                <strong>Verás esto en el Parser (Semana 5):</strong> Exactamente así usaremos <code>strconv.ParseInt(p.curToken.Literal, 0, 64)</code> para convertir el texto <code>"42"</code> en un número real <code>int64(42)</code> al construir un <code>ast.IntegerLiteral</code>.
+            </div>
+        </section>
+
+        <!-- ==================== SLIDE 8: SLICES ==================== -->
+        <section id="slices" class="section slide">
+            <h2>7. Slices: Listas Dinámicas en Go</h2>
+            <p>Aunque Go tiene arreglos de tamaño fijo (<code>[3]int</code>), en la práctica casi siempre usamos <strong>slices</strong> (<code>[]T</code>), que crecen dinámicamente con <code>append</code>.</p>
+
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>slices.go</span></div>
+<pre><code class="language-go">// Crear slices
+var errores []string                // nil slice (len 0)
+numeros := []int{10, 20, 30}        // literal
+buffer := make([]string, 0, 16)     // len 0, cap 16
+
+// Agregar elementos (SIEMPRE reasignar)
+errores = append(errores, "falta ';'")
+errores = append(errores, "token inesperado")
+
+// Recorrer con range (índice y valor)
+for i, err := range errores {
+    fmt.Printf("[%d] %s\n", i, err)
+}
+
+// Si solo necesitas el valor:
+for _, num := range numeros {
+    fmt.Println(num)
+}</code></pre>
+                </div>
+
+                <div class="card card-primary">
+                    <h3 style="color: var(--primary);">¿Dónde usaremos Slices en Monkey?</h3>
+                    <ul class="feature-list">
+                        <li><strong><code>Program.Statements</code>:</strong> lista de sentencias del programa (<code>[]ast.Statement</code>).</li>
+                        <li><strong><code>Parser.errors</code>:</strong> lista acumulada de errores de sintaxis (<code>[]string</code>).</li>
+                        <li><strong><code>Function.Parameters</code>:</strong> lista de parámetros de una función.</li>
+                        <li><strong><code>Array.Elements</code>:</strong> elementos de un arreglo en Monkey (<code>[]object.Object</code>).</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== SLIDE 9: MAPS ==================== -->
+        <section id="maps" class="section slide">
+            <h2>8. Maps: Diccionarios Clave → Valor</h2>
+            <p>Un <code>map[K]V</code> es la tabla hash nativa de Go. Es indispensable para reconocer palabras reservadas, registrar funciones del Pratt Parser y almacenar variables en el <code>Environment</code>.</p>
+
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>maps.go</span></div>
+<pre><code class="language-go">// Literal de map (palabras reservadas de Monkey)
+var keywords = map[string]string{
+    "fn":     "FUNCTION",
+    "let":    "LET",
+    "true":   "TRUE",
+    "false":  "FALSE",
+    "if":     "IF",
+    "else":   "ELSE",
+    "return": "RETURN",
+}
+
+// Inicializar un map vacío listo para escribir
+env := make(map[string]int64)
+env["x"] = 5
+
+// Patrón "comma ok" para distinguir clave inexistente
+if tok, ok := keywords["let"]; ok {
+    fmt.Println("Es keyword:", tok)
+} else {
+    fmt.Println("Es identificador")
+}</code></pre>
+                </div>
+
+                <div class="card card-danger">
+                    <h3 style="color: var(--danger);">Trampa clásica de principiante</h3>
+                    <p>Leer de un <code>map</code> sin inicializar devuelve el <em>zero value</em>, pero <strong>escribir en un <code>map</code> que es <code>nil</code> causa <code>panic</code></strong>.</p>
+                    <div class="code-block">
+<pre><code class="language-go">var m map[string]int // ¡nil!
+// m["a"] = 1        // ¡PANIC!
+
+m = make(map[string]int) // Correcto
+m["a"] = 1</code></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== SIMULADOR ZELDAINTERPRETER ==================== -->
+        <section id="simulador-zelda" class="section slide">
+            <h2>Simulador ZeldaInterpreter</h2>
+            <p>Así funciona el intérprete que construiremos en el curso. Hoy aprendemos Go; en la <strong>Semana 3</strong> construiremos la fase 1 (Tokens). Explora las tres fases para ver hacia dónde vamos.</p>
+            <div data-simulator data-stage="tokens" data-code="let edad = 20;&#10;let mayor = edad &gt; 18;&#10;mayor;"></div>
+        </section>
+
+        <!-- ==================== SLIDE 10: TALLER ==================== -->
+        <section id="taller" class="section slide">
+            <h2>9. Taller Práctico — Semana 1</h2>
+            <div class="card glass">
+                <h3><span data-icon="wrench"></span>Reto: Mini Escáner de Palabras Clave en Go</h3>
+                <p>Crea un módulo Go (<code>go mod init taller01</code>) con un archivo <code>main.go</code> que reciba una cadena de texto estilo código fuente:</p>
+                <div class="code-block">
+<pre><code class="language-go">codigo := "let x = 10; if (x &gt; 5) { return true; }"</code></pre>
+                </div>
+                <ol>
+                    <li>Escribe una función <code>extraerPalabras(input string) []string</code> que recorra el string carácter por carácter usando índices y <code>isLetter(ch byte) bool</code>, extrayendo palabras con slicing <code>input[inicio:fin]</code>.</li>
+                    <li>Usa un <code>map[string]string</code> de palabras reservadas (<code>let</code>, <code>if</code>, <code>else</code>, <code>return</code>, <code>true</code>, <code>false</code>, <code>fn</code>).</li>
+                    <li>Clasifica cada palabra extraída como <strong>KEYWORD</strong> o <strong>IDENT</strong> y cuenta cuántas veces aparece cada tipo usando otro <code>map[string]int</code>.</li>
+                    <li><strong>Bonus:</strong> Agrega también una función <code>extraerNumeros(input string) []int64</code> usando <code>strconv.ParseInt</code>.</li>
+                </ol>
+            </div>
+
+            <div class="tip-box">
+                <strong>Próxima semana (Semana 2):</strong> Convertiremos esta lógica en estructuras profesionales con <code>struct</code>, punteros, interfaces implícitas, closures y pruebas automatizadas con <code>go test</code>.
+            </div>
+            <div class="exercise-cta">
+                <div>
+                    <h3>Guía de ejercicios · Semana 1</h3>
+                    <p>Preguntas conceptuales, trazas a mano y retos de programación para resolver en casa.</p>
+                </div>
+                <a class="btn-download" data-pdf-link href="#"><span data-icon="file-down"></span>Descargar PDF</a>
+            </div>
+
+        </section>
+
+        <nav class="class-footer-nav" data-course-footer aria-label="Navegación entre clases"></nav>
+
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/go.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/bash.min.js"></script>
+    <script src="../assets/course.js"></script>
+    <script src="../assets/presentation.js"></script>
+    <script src="../assets/monkey.js"></script>
+    <script src="../assets/simulator.js"></script>
+</body>
+</html>

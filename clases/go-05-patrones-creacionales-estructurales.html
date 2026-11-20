@@ -1,0 +1,1235 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Go V: Patrones Creacionales y Estructurales | ZeldaInterpreter · Lenguajes y Compiladores 2027-1</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css">
+    <link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body data-week="go5" data-week-num="2">
+    <a class="skip-link" href="#contenido">Saltar al contenido</a>
+
+    <aside class="sidebar">
+        <div class="logo">
+            <a href="../index.html">
+                <h1 class="brand"><span class="brand-logo" data-logo="56"></span><span class="brand-name">ZeldaInterpreter</span></h1>
+                <p class="logo-subtitle">Go V · Patrones creacionales y estructurales</p>
+            </a>
+        </div>
+
+        <a href="../index.html" class="back-link"><span data-icon="home"></span>Portal del Curso</a>
+
+        <button type="button" class="present-btn" id="toggle-slides-btn" aria-pressed="false">
+            <span data-icon="presentation"></span>Modo Presentación <kbd>P</kbd>
+        </button>
+        <a class="pdf-btn" data-pdf-link href="#"><span data-icon="file-down"></span>Ejercicios del módulo (PDF)</a>
+
+        <nav>
+            <div class="nav-group-title">Contenido de la Clase</div>
+            <ul>
+                <li><a href="#portada" class="active">Portada y objetivos</a></li>
+                <li><a href="#que-es">1. ¿Qué es un patrón?</a></li>
+                <li><a href="#explorador">2. Explorador de patrones</a></li>
+                <li><a href="#p-factory-method">3. Factory Method</a></li>
+                <li><a href="#p-abstract-factory">4. Abstract Factory</a></li>
+                <li><a href="#p-builder">5. Builder</a></li>
+                <li><a href="#p-prototype">6. Prototype</a></li>
+                <li><a href="#p-singleton">7. Singleton</a></li>
+                <li><a href="#p-adapter">8. Adapter</a></li>
+                <li><a href="#p-bridge">9. Bridge</a></li>
+                <li><a href="#p-composite">10. Composite</a></li>
+                <li><a href="#p-decorator">11. Decorator</a></li>
+                <li><a href="#p-facade">12. Facade</a></li>
+                <li><a href="#p-flyweight">13. Flyweight</a></li>
+                <li><a href="#p-proxy">14. Proxy</a></li>
+                <li><a href="#comparativa">15. Comparativa</a></li>
+                <li><a href="#simulador-zelda">Simulador ZeldaInterpreter</a></li>
+                <li><a href="#resumen">16. Ideas clave</a></li>
+                <li><a href="#taller">17. Taller</a></li>
+            </ul>
+            <div data-course-nav></div>
+        </nav>
+
+        <div class="sidebar-footer">Bloque I ampliado · Módulo Go V</div>
+    </aside>
+
+    <main class="content" id="contenido">
+
+        <header id="portada" class="hero slide">
+            <div class="hero-badge accent"><span data-icon="layers"></span>Go V · Bloque I ampliado</div>
+            <h1>Patrones de Diseño I: <span class="gradient-text">Creacionales y Estructurales</span></h1>
+            <p>Los patrones son soluciones probadas a problemas de diseño que se repiten. Veremos los 12 patrones creacionales y estructurales del catálogo clásico (GoF), cada uno con un programa Go ejecutable y su lugar dentro de ZeldaInterpreter.</p>
+            <div class="hero-meta">
+                <span class="meta-pill"><span data-icon="code"></span>12 programas en <code>ejemplos/patrones/</code></span>
+                <a class="meta-pill" href="https://refactoring.guru/es/design-patterns/catalog" target="_blank" rel="noopener"><span data-icon="link"></span>Referencia: catálogo de Refactoring.Guru</a>
+            </div>
+            <div class="objectives" aria-label="Objetivos de la clase">
+                <div class="objective"><span class="num">1</span><span>Reconocer el problema que resuelve cada patrón.</span></div>
+                <div class="objective"><span class="num">2</span><span>Implementarlo de forma idiomática en Go (interfaces, funciones, embedding).</span></div>
+                <div class="objective"><span class="num">3</span><span>Identificar dónde ya aparece en el intérprete.</span></div>
+                <div class="objective"><span class="num">4</span><span>Saber cuándo <strong>no</strong> usarlo.</span></div>
+            </div>
+        </header>
+
+        <section id="que-es" class="section slide">
+            <h2>1. ¿Qué es un patrón de diseño?</h2>
+            <p>Un patrón describe un <strong>problema recurrente</strong>, la <strong>idea</strong> de su solución y sus <strong>consecuencias</strong>. No es código para copiar: es un vocabulario común para diseñar. El catálogo clásico viene del libro <em>Design Patterns</em> (1994) de Gamma, Helm, Johnson y Vlissides, la “Gang of Four”.</p>
+            <div class="grid-3">
+                <div class="card card-primary"><h3 style="color: var(--primary);">Creacionales (5)</h3><p>Cómo se <strong>crean</strong> los objetos sin acoplar al cliente con tipos concretos.</p></div>
+                <div class="card card-accent"><h3 style="color: var(--accent);">Estructurales (7)</h3><p>Cómo se <strong>componen</strong> objetos y tipos para formar estructuras mayores.</p></div>
+                <div class="card card-success"><h3 style="color: var(--success);">De comportamiento (10)</h3><p>Cómo se <strong>reparten responsabilidades</strong> y se comunican los objetos (en Go VI).</p></div>
+            </div>
+            <div class="info-box">
+                <strong>Patrones en Go:</strong> muchos patrones se simplifican porque Go tiene funciones de primera clase, interfaces implícitas, embedding y canales. Un Strategy puede ser un <code>map[string]func(...)</code>; un Singleton, una variable de paquete con <code>sync.Once</code>. Para profundizar, consulta el <a href="https://refactoring.guru/es/design-patterns/catalog" target="_blank" rel="noopener">catálogo de Refactoring.Guru</a>, que tiene una explicación ilustrada de cada patrón y ejemplos en Go.
+            </div>
+        </section>
+
+        <section id="explorador" class="section slide">
+            <h2>2. Explorador de patrones</h2>
+            <p>Filtra por categoría o busca por palabra clave (por ejemplo <em>AST</em>, <em>REPL</em> o <em>lexer</em>). Los 22 patrones del curso están aquí; los de la otra clase abren en su página.</p>
+            <div data-pattern-explorer></div>
+        </section>
+
+        <section id="p-factory-method" class="section slide" data-pattern="factory-method">
+            <h2>3. Factory Method</h2>
+            <div class="pat-meta">
+                <span class="meta-pill">Creacional</span>
+                <span class="meta-pill"><span data-icon="code"></span><code>ejemplos/patrones/factory-method</code></span>
+                <a class="meta-pill" href="https://refactoring.guru/es/design-patterns/catalog" target="_blank" rel="noopener"><span data-icon="link"></span>Catálogo de referencia</a>
+            </div>
+            <div class="grid-2">
+                <div>
+                    <div class="card card-primary">
+                        <h3 style="color: var(--primary);">Intención</h3>
+                        <p>Delegar en una función o método la decisión de qué tipo concreto crear, devolviendo una abstracción.</p>
+                        <h4>Problema en ZeldaInterpreter</h4>
+                        <p>El REPL debe imprimir resultados en texto plano, JSON o en un recuadro según una opción, sin llenar el código de <code>if</code>.</p>
+                    </div>
+                    <div class="grid-2">
+                        <div class="card card-success"><h3 style="color: var(--success);">Úsalo cuando…</h3><p>Cuando el cliente no debe conocer los tipos concretos o cuando la elección depende de configuración.</p></div>
+                        <div class="card card-warning"><h3 style="color: var(--warning);">Evítalo si…</h3><p>Si solo existe un tipo concreto: un constructor <code>NewX</code> basta.</p></div>
+                    </div>
+                    <div class="info-box"><strong>En Go:</strong> En Go suele ser una función <code>NewX(...) (Interfaz, error)</code>, sin jerarquías de creadores.</div>
+                    <div class="tip-box"><strong>En el intérprete:</strong> <code>lexer.New</code>, <code>parser.New</code> y <code>object.NewEnvironment</code> son fábricas simples; <code>NewPrinter(format)</code> lo sería con varios formatos.</div>
+                </div>
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>ejemplos/patrones/factory-method/main.go</span></div>
+<pre><code class="language-go" data-src="ejemplos/patrones/factory-method/main.go">// Factory Method: una función decide qué tipo concreto crear y devuelve una interfaz.
+// Ejemplo: el REPL elige cómo imprimir resultados según una opción de línea de comandos.
+package main
+
+import (
+	"fmt"
+	"strings"
+)
+
+type Printer interface{ Print(result string) string }
+
+type plainPrinter struct{}
+type jsonPrinter struct{}
+type boxPrinter struct{ width int }
+
+func (plainPrinter) Print(r string) string { return r }
+func (jsonPrinter) Print(r string) string  { return fmt.Sprintf(`{"result": %q}`, r) }
+func (b boxPrinter) Print(r string) string {
+	line := strings.Repeat("-", b.width)
+	return fmt.Sprintf("+%s+\n|%-*s|\n+%s+", line, b.width, r, line)
+}
+
+// NewPrinter es el método fábrica: el cliente pide por nombre y recibe la abstracción.
+func NewPrinter(format string) (Printer, error) {
+	switch format {
+	case "plain":
+		return plainPrinter{}, nil
+	case "json":
+		return jsonPrinter{}, nil
+	case "box":
+		return boxPrinter{width: 8}, nil
+	}
+	return nil, fmt.Errorf("formato desconocido: %s", format)
+}
+
+func main() {
+	for _, f := range []string{"plain", "json", "box", "xml"} {
+		p, err := NewPrinter(f)
+		if err != nil {
+			fmt.Println("error:", err)
+			continue
+		}
+		fmt.Println(p.Print("42"))
+	}
+}</code></pre>
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header"><span>$ go run ./patrones/factory-method</span></div>
+<pre><code class="language-plaintext" data-out="ejemplos/patrones/factory-method">42
+{"result": "42"}
++--------+
+|42      |
++--------+
+error: formato desconocido: xml</code></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="p-abstract-factory" class="section slide" data-pattern="abstract-factory">
+            <h2>4. Abstract Factory</h2>
+            <div class="pat-meta">
+                <span class="meta-pill">Creacional</span>
+                <span class="meta-pill"><span data-icon="code"></span><code>ejemplos/patrones/abstract-factory</code></span>
+                <a class="meta-pill" href="https://refactoring.guru/es/design-patterns/catalog" target="_blank" rel="noopener"><span data-icon="link"></span>Catálogo de referencia</a>
+            </div>
+            <div class="grid-2">
+                <div>
+                    <div class="card card-primary">
+                        <h3 style="color: var(--primary);">Intención</h3>
+                        <p>Crear familias completas de objetos relacionados que están diseñados para usarse juntos.</p>
+                        <h4>Problema en ZeldaInterpreter</h4>
+                        <p>El REPL tiene prompt y formato de errores; con colores ANSI o sin ellos. Mezclar un prompt con color y errores sin color sería inconsistente.</p>
+                    </div>
+                    <div class="grid-2">
+                        <div class="card card-success"><h3 style="color: var(--success);">Úsalo cuando…</h3><p>Cuando hay varias familias intercambiables (temas, plataformas, backends) y hay que garantizar coherencia.</p></div>
+                        <div class="card card-warning"><h3 style="color: var(--warning);">Evítalo si…</h3><p>Si solo hay un producto por familia: un Factory Method es suficiente.</p></div>
+                    </div>
+                    <div class="info-box"><strong>En Go:</strong> Una interfaz con varios métodos <code>NewX()</code>; cada familia es un struct vacío que la implementa.</div>
+                    <div class="tip-box"><strong>En el intérprete:</strong> Un <code>Theme</code> del REPL que produce <code>Prompt</code> y <code>ErrorFormatter</code> coherentes entre sí.</div>
+                </div>
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>ejemplos/patrones/abstract-factory/main.go</span></div>
+<pre><code class="language-go" data-src="ejemplos/patrones/abstract-factory/main.go">// Abstract Factory: crear FAMILIAS de objetos relacionados que deben usarse juntos.
+// Ejemplo: el tema del REPL (prompt + formato de errores) en versión "color" o "plana".
+package main
+
+import "fmt"
+
+type Prompt interface{ Render() string }
+type ErrorFormatter interface{ Format(msg string) string }
+
+// Theme es la fábrica abstracta.
+type Theme interface {
+	NewPrompt() Prompt
+	NewErrorFormatter() ErrorFormatter
+}
+
+// Familia "color" (secuencias ANSI de terminal)
+type colorTheme struct{}
+type colorPrompt struct{}
+type colorErrors struct{}
+
+func (colorTheme) NewPrompt() Prompt                 { return colorPrompt{} }
+func (colorTheme) NewErrorFormatter() ErrorFormatter { return colorErrors{} }
+func (colorPrompt) Render() string                   { return "\033[36m&gt;&gt;\033[0m " }
+func (colorErrors) Format(m string) string           { return "\033[31merror:\033[0m " + m }
+
+// Familia "plana" (archivos de log, terminales sin color)
+type plainTheme struct{}
+type plainPrompt struct{}
+type plainErrors struct{}
+
+func (plainTheme) NewPrompt() Prompt                 { return plainPrompt{} }
+func (plainTheme) NewErrorFormatter() ErrorFormatter { return plainErrors{} }
+func (plainPrompt) Render() string                   { return "&gt;&gt; " }
+func (plainErrors) Format(m string) string           { return "[ERROR] " + m }
+
+// El cliente solo conoce interfaces: nunca mezcla piezas de familias distintas.
+func session(t Theme) {
+	p, e := t.NewPrompt(), t.NewErrorFormatter()
+	fmt.Printf("%q\n", p.Render()+"let x = ;")
+	fmt.Printf("%q\n", e.Format("no prefix parse function for ; found"))
+}
+
+func main() {
+	session(plainTheme{})
+	session(colorTheme{})
+}</code></pre>
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header"><span>$ go run ./patrones/abstract-factory</span></div>
+<pre><code class="language-plaintext" data-out="ejemplos/patrones/abstract-factory">"&gt;&gt; let x = ;"
+"[ERROR] no prefix parse function for ; found"
+"\x1b[36m&gt;&gt;\x1b[0m let x = ;"
+"\x1b[31merror:\x1b[0m no prefix parse function for ; found"</code></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="p-builder" class="section slide" data-pattern="builder">
+            <h2>5. Builder</h2>
+            <div class="pat-meta">
+                <span class="meta-pill">Creacional</span>
+                <span class="meta-pill"><span data-icon="code"></span><code>ejemplos/patrones/builder</code></span>
+                <a class="meta-pill" href="https://refactoring.guru/es/design-patterns/catalog" target="_blank" rel="noopener"><span data-icon="link"></span>Catálogo de referencia</a>
+            </div>
+            <div class="grid-2">
+                <div>
+                    <div class="card card-primary">
+                        <h3 style="color: var(--primary);">Intención</h3>
+                        <p>Construir un objeto complejo paso a paso, separando la construcción de su representación final.</p>
+                        <h4>Problema en ZeldaInterpreter</h4>
+                        <p>Las pruebas del parser necesitan programas y ASTs de ejemplo; armarlos con structs anidados es largo y frágil.</p>
+                    </div>
+                    <div class="grid-2">
+                        <div class="card card-success"><h3 style="color: var(--success);">Úsalo cuando…</h3><p>Objetos con muchas partes opcionales, validación al final o construcción en varios pasos.</p></div>
+                        <div class="card card-warning"><h3 style="color: var(--warning);">Evítalo si…</h3><p>Objetos simples con dos o tres campos: un literal de struct es más claro.</p></div>
+                    </div>
+                    <div class="info-box"><strong>En Go:</strong> API fluida que devuelve <code>*Builder</code>; alternativa idiomática: <em>functional options</em> (<code>New(WithTrace(true))</code>).</div>
+                    <div class="tip-box"><strong>En el intérprete:</strong> Un <code>ProgramBuilder</code> para tests y <code>strings.Builder</code>/<code>bytes.Buffer</code> en todos los <code>String()</code> del AST.</div>
+                </div>
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>ejemplos/patrones/builder/main.go</span></div>
+<pre><code class="language-go" data-src="ejemplos/patrones/builder/main.go">// Builder: construir un objeto complejo paso a paso.
+// Ejemplo: armar programas/AST de prueba con una API fluida en los tests del parser.
+package main
+
+import (
+	"errors"
+	"fmt"
+	"strings"
+)
+
+type Program struct{ Statements []string }
+
+func (p Program) String() string { return strings.Join(p.Statements, "\n") }
+
+type ProgramBuilder struct {
+	stmts []string
+	err   error
+}
+
+func NewProgram() *ProgramBuilder { return &amp;ProgramBuilder{} }
+
+func (b *ProgramBuilder) Let(name, value string) *ProgramBuilder {
+	if name == "" {
+		b.err = errors.New("let sin nombre")
+		return b
+	}
+	b.stmts = append(b.stmts, fmt.Sprintf("let %s = %s;", name, value))
+	return b
+}
+
+func (b *ProgramBuilder) Return(value string) *ProgramBuilder {
+	b.stmts = append(b.stmts, fmt.Sprintf("return %s;", value))
+	return b
+}
+
+// Build valida y entrega el producto terminado.
+func (b *ProgramBuilder) Build() (Program, error) {
+	if b.err != nil {
+		return Program{}, b.err
+	}
+	return Program{Statements: b.stmts}, nil
+}
+
+func main() {
+	p, err := NewProgram().Let("x", "5").Let("y", "x * 2").Return("y").Build()
+	fmt.Println(p)
+	fmt.Println("err:", err)
+
+	_, err = NewProgram().Let("", "1").Return("1").Build()
+	fmt.Println("err:", err)
+}</code></pre>
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header"><span>$ go run ./patrones/builder</span></div>
+<pre><code class="language-plaintext" data-out="ejemplos/patrones/builder">let x = 5;
+let y = x * 2;
+return y;
+err: &lt;nil&gt;
+err: let sin nombre</code></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="p-prototype" class="section slide" data-pattern="prototype">
+            <h2>6. Prototype</h2>
+            <div class="pat-meta">
+                <span class="meta-pill">Creacional</span>
+                <span class="meta-pill"><span data-icon="code"></span><code>ejemplos/patrones/prototype</code></span>
+                <a class="meta-pill" href="https://refactoring.guru/es/design-patterns/catalog" target="_blank" rel="noopener"><span data-icon="link"></span>Catálogo de referencia</a>
+            </div>
+            <div class="grid-2">
+                <div>
+                    <div class="card card-primary">
+                        <h3 style="color: var(--primary);">Intención</h3>
+                        <p>Crear nuevos objetos clonando uno existente en lugar de construirlos desde cero.</p>
+                        <h4>Problema en ZeldaInterpreter</h4>
+                        <p><code>push</code> de Monkey no debe modificar el array original: necesita una copia del array antes de agregar.</p>
+                    </div>
+                    <div class="grid-2">
+                        <div class="card card-success"><h3 style="color: var(--success);">Úsalo cuando…</h3><p>Cuando copiar es más simple que reconstruir, o cuando se necesitan copias independientes de estructuras anidadas.</p></div>
+                        <div class="card card-warning"><h3 style="color: var(--warning);">Evítalo si…</h3><p>Si los objetos son inmutables: se pueden compartir sin copiar.</p></div>
+                    </div>
+                    <div class="info-box"><strong>En Go:</strong> Un método <code>Clone() T</code>; cuidado con la diferencia entre copia superficial y profunda de slices y maps.</div>
+                    <div class="tip-box"><strong>En el intérprete:</strong> <code>push</code> y <code>rest</code> del Cap. 4 crean arrays nuevos; un método <code>Clone()</code> generaliza la idea.</div>
+                </div>
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>ejemplos/patrones/prototype/main.go</span></div>
+<pre><code class="language-go" data-src="ejemplos/patrones/prototype/main.go">// Prototype: crear objetos copiando (clonando) uno existente.
+// Ejemplo: push en Monkey no modifica el array original: clona y luego agrega.
+package main
+
+import "fmt"
+
+type Object interface {
+	Inspect() string
+	Clone() Object
+}
+
+type Integer struct{ Value int64 }
+
+func (i *Integer) Inspect() string { return fmt.Sprint(i.Value) }
+func (i *Integer) Clone() Object {
+	c := *i
+	return &amp;c
+}
+
+type Array struct{ Elements []Object }
+
+func (a *Array) Inspect() string { return fmt.Sprintf("%d elementos", len(a.Elements)) }
+
+// Clone hace una copia PROFUNDA: también clona cada elemento.
+func (a *Array) Clone() Object {
+	elems := make([]Object, len(a.Elements))
+	for i, e := range a.Elements {
+		elems[i] = e.Clone()
+	}
+	return &amp;Array{Elements: elems}
+}
+
+func push(arr *Array, v Object) *Array {
+	c := arr.Clone().(*Array) // el original queda intacto
+	c.Elements = append(c.Elements, v)
+	return c
+}
+
+func main() {
+	original := &amp;Array{Elements: []Object{&amp;Integer{Value: 1}, &amp;Integer{Value: 2}}}
+	nuevo := push(original, &amp;Integer{Value: 3})
+
+	nuevo.Elements[0].(*Integer).Value = 99 // modificar la copia...
+	fmt.Println("original:", original.Inspect(), "primero =", original.Elements[0].Inspect())
+	fmt.Println("nuevo:   ", nuevo.Inspect(), "primero =", nuevo.Elements[0].Inspect())
+}</code></pre>
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header"><span>$ go run ./patrones/prototype</span></div>
+<pre><code class="language-plaintext" data-out="ejemplos/patrones/prototype">original: 2 elementos primero = 1
+nuevo:    3 elementos primero = 99</code></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="p-singleton" class="section slide" data-pattern="singleton">
+            <h2>7. Singleton</h2>
+            <div class="pat-meta">
+                <span class="meta-pill">Creacional</span>
+                <span class="meta-pill"><span data-icon="code"></span><code>ejemplos/patrones/singleton</code></span>
+                <a class="meta-pill" href="https://refactoring.guru/es/design-patterns/catalog" target="_blank" rel="noopener"><span data-icon="link"></span>Catálogo de referencia</a>
+            </div>
+            <div class="grid-2">
+                <div>
+                    <div class="card card-primary">
+                        <h3 style="color: var(--primary);">Intención</h3>
+                        <p>Garantizar que exista una única instancia de un tipo y ofrecer un punto de acceso global a ella.</p>
+                        <h4>Problema en ZeldaInterpreter</h4>
+                        <p>Crear un <code>&amp;Boolean{true}</code> nuevo en cada comparación desperdicia memoria e impide comparar por puntero.</p>
+                    </div>
+                    <div class="grid-2">
+                        <div class="card card-success"><h3 style="color: var(--success);">Úsalo cuando…</h3><p>Valores únicos por naturaleza (TRUE, FALSE, NULL) o registros globales de solo lectura.</p></div>
+                        <div class="card card-warning"><h3 style="color: var(--warning);">Evítalo si…</h3><p>Para estado mutable compartido: dificulta las pruebas y oculta dependencias.</p></div>
+                    </div>
+                    <div class="info-box"><strong>En Go:</strong> Variables de paquete o <code>sync.Once</code> para inicialización perezosa y segura entre goroutines.</div>
+                    <div class="tip-box"><strong>En el intérprete:</strong> <code>TRUE</code>, <code>FALSE</code> y <code>NULL</code> del evaluador (Semana 6) y el mapa <code>builtins</code> (Semana 8).</div>
+                </div>
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>ejemplos/patrones/singleton/main.go</span></div>
+<pre><code class="language-go" data-src="ejemplos/patrones/singleton/main.go">// Singleton: una única instancia compartida. En Go: variables de paquete o sync.Once.
+package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+type Boolean struct{ Value bool }
+
+// Instancias únicas, como TRUE/FALSE/NULL en el evaluador del libro.
+var (
+	TRUE  = &amp;Boolean{Value: true}
+	FALSE = &amp;Boolean{Value: false}
+)
+
+func nativeBool(b bool) *Boolean {
+	if b {
+		return TRUE
+	}
+	return FALSE
+}
+
+// Registro de built-ins creado de forma perezosa, una sola vez y seguro entre goroutines.
+type Registry struct{ names []string }
+
+var (
+	registry *Registry
+	once     sync.Once
+)
+
+func Builtins() *Registry {
+	once.Do(func() {
+		fmt.Println("(inicializando registro: esto se imprime una sola vez)")
+		registry = &amp;Registry{names: []string{"len", "first", "last", "rest", "push", "puts"}}
+	})
+	return registry
+}
+
+func main() {
+	fmt.Println("mismo TRUE:", nativeBool(1 &lt; 2) == nativeBool(3 &gt; 0))
+
+	var wg sync.WaitGroup
+	for range 3 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_ = Builtins()
+		}()
+	}
+	wg.Wait()
+	fmt.Println("misma instancia:", Builtins() == Builtins(), Builtins().names)
+}</code></pre>
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header"><span>$ go run ./patrones/singleton</span></div>
+<pre><code class="language-plaintext" data-out="ejemplos/patrones/singleton">mismo TRUE: true
+(inicializando registro: esto se imprime una sola vez)
+misma instancia: true [len first last rest push puts]</code></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="p-adapter" class="section slide" data-pattern="adapter">
+            <h2>8. Adapter</h2>
+            <div class="pat-meta">
+                <span class="meta-pill">Estructural</span>
+                <span class="meta-pill"><span data-icon="code"></span><code>ejemplos/patrones/adapter</code></span>
+                <a class="meta-pill" href="https://refactoring.guru/es/design-patterns/catalog" target="_blank" rel="noopener"><span data-icon="link"></span>Catálogo de referencia</a>
+            </div>
+            <div class="grid-2">
+                <div>
+                    <div class="card card-primary">
+                        <h3 style="color: var(--primary);">Intención</h3>
+                        <p>Convertir la interfaz de un tipo existente en otra que el cliente espera, sin modificar ninguno de los dos.</p>
+                        <h4>Problema en ZeldaInterpreter</h4>
+                        <p>El lexer lee de un <code>string</code>, pero queremos alimentarlo desde archivos, la red o stdin (<code>io.Reader</code>).</p>
+                    </div>
+                    <div class="grid-2">
+                        <div class="card card-success"><h3 style="color: var(--success);">Úsalo cuando…</h3><p>Integrar código de terceros o de la biblioteca estándar con interfaces propias.</p></div>
+                        <div class="card card-warning"><h3 style="color: var(--warning);">Evítalo si…</h3><p>Si puedes cambiar directamente una de las dos interfaces sin romper a nadie.</p></div>
+                    </div>
+                    <div class="info-box"><strong>En Go:</strong> Un struct pequeño que envuelve al adaptado e implementa la interfaz destino.</div>
+                    <div class="tip-box"><strong>En el intérprete:</strong> Un <code>Source</code> del lexer adaptado desde <code>io.Reader</code>; el REPL ya recibe <code>io.Reader</code>/<code>io.Writer</code>.</div>
+                </div>
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>ejemplos/patrones/adapter/main.go</span></div>
+<pre><code class="language-go" data-src="ejemplos/patrones/adapter/main.go">// Adapter: hacer que una interfaz existente encaje con la que espera nuestro código.
+// Ejemplo: el lexer espera un Source; queremos alimentarlo desde cualquier io.Reader.
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"io"
+	"strings"
+)
+
+// Source es la interfaz que conoce nuestro lexer.
+type Source interface {
+	NextChar() (byte, bool)
+}
+
+// stringSource es la implementación nativa.
+type stringSource struct {
+	s   string
+	pos int
+}
+
+func (s *stringSource) NextChar() (byte, bool) {
+	if s.pos &gt;= len(s.s) {
+		return 0, false
+	}
+	s.pos++
+	return s.s[s.pos-1], true
+}
+
+// readerAdapter adapta un io.Reader (archivo, red, stdin) a Source.
+type readerAdapter struct{ r *bufio.Reader }
+
+func FromReader(r io.Reader) Source { return &amp;readerAdapter{r: bufio.NewReader(r)} }
+
+func (a *readerAdapter) NextChar() (byte, bool) {
+	b, err := a.r.ReadByte()
+	if err != nil {
+		return 0, false
+	}
+	return b, true
+}
+
+// countLetters es el cliente: solo depende de Source.
+func countLetters(src Source) int {
+	n := 0
+	for ch, ok := src.NextChar(); ok; ch, ok = src.NextChar() {
+		if ch &gt;= 'a' &amp;&amp; ch &lt;= 'z' {
+			n++
+		}
+	}
+	return n
+}
+
+func main() {
+	fmt.Println(countLetters(&amp;stringSource{s: "let x = 5;"}))
+	fmt.Println(countLetters(FromReader(strings.NewReader("fn(a, b)"))))
+}</code></pre>
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header"><span>$ go run ./patrones/adapter</span></div>
+<pre><code class="language-plaintext" data-out="ejemplos/patrones/adapter">4
+4</code></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="p-bridge" class="section slide" data-pattern="bridge">
+            <h2>9. Bridge</h2>
+            <div class="pat-meta">
+                <span class="meta-pill">Estructural</span>
+                <span class="meta-pill"><span data-icon="code"></span><code>ejemplos/patrones/bridge</code></span>
+                <a class="meta-pill" href="https://refactoring.guru/es/design-patterns/catalog" target="_blank" rel="noopener"><span data-icon="link"></span>Catálogo de referencia</a>
+            </div>
+            <div class="grid-2">
+                <div>
+                    <div class="card card-primary">
+                        <h3 style="color: var(--primary);">Intención</h3>
+                        <p>Separar una abstracción de su implementación para que ambas puedan evolucionar de forma independiente.</p>
+                        <h4>Problema en ZeldaInterpreter</h4>
+                        <p>Los reportes de error tienen variantes (corto, detallado) y destinos (terminal, HTML). Combinarlos por herencia daría 2 × 2 tipos.</p>
+                    </div>
+                    <div class="grid-2">
+                        <div class="card card-success"><h3 style="color: var(--success);">Úsalo cuando…</h3><p>Cuando hay dos dimensiones de variación que se multiplican.</p></div>
+                        <div class="card card-warning"><h3 style="color: var(--warning);">Evítalo si…</h3><p>Si solo hay una dimensión: una interfaz simple es suficiente.</p></div>
+                    </div>
+                    <div class="info-box"><strong>En Go:</strong> La abstracción guarda una interfaz (el “puente”) como campo; se refina con embedding.</div>
+                    <div class="tip-box"><strong>En el intérprete:</strong> Un reporte de errores del parser que puede mostrarse en terminal o en la web del curso.</div>
+                </div>
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>ejemplos/patrones/bridge/main.go</span></div>
+<pre><code class="language-go" data-src="ejemplos/patrones/bridge/main.go">// Bridge: separar una abstracción de su implementación para que varíen por separado.
+// Abstracción: QUÉ se reporta de un error.  Implementación: DÓNDE se muestra.
+package main
+
+import (
+	"fmt"
+	"html"
+)
+
+// Renderer es la implementación (el "puente").
+type Renderer interface {
+	Title(s string) string
+	Body(s string) string
+}
+
+type terminal struct{}
+type htmlOut struct{}
+
+func (terminal) Title(s string) string { return "== " + s + " ==" }
+func (terminal) Body(s string) string  { return "   " + s }
+func (htmlOut) Title(s string) string  { return "&lt;h3&gt;" + html.EscapeString(s) + "&lt;/h3&gt;" }
+func (htmlOut) Body(s string) string   { return "&lt;p&gt;" + html.EscapeString(s) + "&lt;/p&gt;" }
+
+// ErrorReport es la abstracción: guarda una referencia a la implementación.
+type ErrorReport struct {
+	r   Renderer
+	msg string
+}
+
+func (e ErrorReport) Short() string { return e.r.Title("Error") + "\n" + e.r.Body(e.msg) }
+
+// DetailedReport refina la abstracción sin tocar los renderers.
+type DetailedReport struct {
+	ErrorReport
+	line, col int
+}
+
+func (d DetailedReport) Full() string {
+	return d.Short() + "\n" + d.r.Body(fmt.Sprintf("línea %d, columna %d", d.line, d.col))
+}
+
+func main() {
+	for _, r := range []Renderer{terminal{}, htmlOut{}} {
+		rep := DetailedReport{ErrorReport: ErrorReport{r: r, msg: "expected =, got &lt;INT&gt;"}, line: 3, col: 7}
+		fmt.Println(rep.Full())
+	}
+}</code></pre>
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header"><span>$ go run ./patrones/bridge</span></div>
+<pre><code class="language-plaintext" data-out="ejemplos/patrones/bridge">== Error ==
+   expected =, got &lt;INT&gt;
+   línea 3, columna 7
+&lt;h3&gt;Error&lt;/h3&gt;
+&lt;p&gt;expected =, got &amp;lt;INT&amp;gt;&lt;/p&gt;
+&lt;p&gt;línea 3, columna 7&lt;/p&gt;</code></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="p-composite" class="section slide" data-pattern="composite">
+            <h2>10. Composite</h2>
+            <div class="pat-meta">
+                <span class="meta-pill">Estructural</span>
+                <span class="meta-pill"><span data-icon="code"></span><code>ejemplos/patrones/composite</code></span>
+                <a class="meta-pill" href="https://refactoring.guru/es/design-patterns/catalog" target="_blank" rel="noopener"><span data-icon="link"></span>Catálogo de referencia</a>
+            </div>
+            <div class="grid-2">
+                <div>
+                    <div class="card card-primary">
+                        <h3 style="color: var(--primary);">Intención</h3>
+                        <p>Componer objetos en estructuras de árbol y tratar igual a las hojas y a los compuestos.</p>
+                        <h4>Problema en ZeldaInterpreter</h4>
+                        <p>Un programa tiene sentencias que contienen expresiones que contienen otras expresiones; queremos recorrer todo de forma uniforme.</p>
+                    </div>
+                    <div class="grid-2">
+                        <div class="card card-success"><h3 style="color: var(--success);">Úsalo cuando…</h3><p>Cualquier estructura jerárquica: ASTs, sistemas de archivos, menús, escenas gráficas.</p></div>
+                        <div class="card card-warning"><h3 style="color: var(--warning);">Evítalo si…</h3><p>Si los elementos no forman realmente una jerarquía.</p></div>
+                    </div>
+                    <div class="info-box"><strong>En Go:</strong> Una interfaz común (<code>Node</code>) implementada por hojas y por nodos que guardan slices de <code>Node</code>.</div>
+                    <div class="tip-box"><strong>En el intérprete:</strong> ¡El AST completo! <code>Program</code> y <code>BlockStatement</code> contienen <code>Statement</code>s; <code>InfixExpression</code> contiene <code>Expression</code>s.</div>
+                </div>
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>ejemplos/patrones/composite/main.go</span></div>
+<pre><code class="language-go" data-src="ejemplos/patrones/composite/main.go">// Composite: tratar igual a objetos individuales y a composiciones de objetos.
+// ¡El AST es un Composite! Un bloque contiene sentencias que contienen expresiones.
+package main
+
+import (
+	"fmt"
+	"strings"
+)
+
+type Node interface {
+	String() string
+	Count() int // cuántos nodos tiene este subárbol
+}
+
+// Hojas
+type Integer struct{ Value int }
+type Ident struct{ Name string }
+
+func (i Integer) String() string { return fmt.Sprint(i.Value) }
+func (i Integer) Count() int     { return 1 }
+func (i Ident) String() string   { return i.Name }
+func (i Ident) Count() int       { return 1 }
+
+// Compuestos
+type Infix struct {
+	Left  Node
+	Op    string
+	Right Node
+}
+
+func (n Infix) String() string {
+	return "(" + n.Left.String() + " " + n.Op + " " + n.Right.String() + ")"
+}
+func (n Infix) Count() int { return 1 + n.Left.Count() + n.Right.Count() }
+
+type Block struct{ Stmts []Node }
+
+func (b Block) String() string {
+	parts := make([]string, len(b.Stmts))
+	for i, s := range b.Stmts {
+		parts[i] = s.String()
+	}
+	return "{ " + strings.Join(parts, "; ") + " }"
+}
+
+func (b Block) Count() int {
+	total := 1
+	for _, s := range b.Stmts {
+		total += s.Count() // no importa si s es hoja o compuesto
+	}
+	return total
+}
+
+func main() {
+	tree := Block{Stmts: []Node{
+		Infix{Left: Integer{1}, Op: "+", Right: Infix{Left: Integer{2}, Op: "*", Right: Ident{"x"}}},
+		Ident{"y"},
+	}}
+	fmt.Println(tree, "-&gt;", tree.Count(), "nodos")
+}</code></pre>
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header"><span>$ go run ./patrones/composite</span></div>
+<pre><code class="language-plaintext" data-out="ejemplos/patrones/composite">{ (1 + (2 * x)); y } -&gt; 7 nodos</code></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="p-decorator" class="section slide" data-pattern="decorator">
+            <h2>11. Decorator</h2>
+            <div class="pat-meta">
+                <span class="meta-pill">Estructural</span>
+                <span class="meta-pill"><span data-icon="code"></span><code>ejemplos/patrones/decorator</code></span>
+                <a class="meta-pill" href="https://refactoring.guru/es/design-patterns/catalog" target="_blank" rel="noopener"><span data-icon="link"></span>Catálogo de referencia</a>
+            </div>
+            <div class="grid-2">
+                <div>
+                    <div class="card card-primary">
+                        <h3 style="color: var(--primary);">Intención</h3>
+                        <p>Agregar responsabilidades a un objeto envolviéndolo en otro que implementa la misma interfaz.</p>
+                        <h4>Problema en ZeldaInterpreter</h4>
+                        <p>Queremos trazar o cronometrar el evaluador sin tocar su código ni crear subclases.</p>
+                    </div>
+                    <div class="grid-2">
+                        <div class="card card-success"><h3 style="color: var(--success);">Úsalo cuando…</h3><p>Funcionalidad opcional y combinable: logs, métricas, caché, reintentos, autorización.</p></div>
+                        <div class="card card-warning"><h3 style="color: var(--warning);">Evítalo si…</h3><p>Si el orden de las capas genera confusión o se apilan demasiadas.</p></div>
+                    </div>
+                    <div class="info-box"><strong>En Go:</strong> Un struct con un campo <code>inner Interfaz</code>; el patrón de <em>middleware</em> HTTP es el mismo.</div>
+                    <div class="tip-box"><strong>En el intérprete:</strong> El tracing del parser (<code>trace</code>/<code>untrace</code>) envuelto como decorador de <code>Eval</code>.</div>
+                </div>
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>ejemplos/patrones/decorator/main.go</span></div>
+<pre><code class="language-go" data-src="ejemplos/patrones/decorator/main.go">// Decorator: agregar responsabilidades envolviendo un objeto, sin modificar su código.
+// Ejemplo: agregar traza y medición de tiempo a un evaluador.
+package main
+
+import (
+	"fmt"
+	"strings"
+	"time"
+)
+
+type Evaluator interface {
+	Eval(expr string) (int, error)
+}
+
+// Componente base: suma enteros "a + b + c".
+type sumEvaluator struct{}
+
+func (sumEvaluator) Eval(expr string) (int, error) {
+	total := 0
+	for _, p := range strings.Split(expr, "+") {
+		var n int
+		if _, err := fmt.Sscan(strings.TrimSpace(p), &amp;n); err != nil {
+			return 0, fmt.Errorf("no es entero: %q", strings.TrimSpace(p))
+		}
+		total += n
+	}
+	return total, nil
+}
+
+// Decorador 1: traza cada llamada.
+type tracing struct{ inner Evaluator }
+
+func (t tracing) Eval(expr string) (int, error) {
+	fmt.Printf("-&gt; Eval(%q)\n", expr)
+	v, err := t.inner.Eval(expr)
+	fmt.Printf("&lt;- %d, err=%v\n", v, err)
+	return v, err
+}
+
+// Decorador 2: mide el tiempo.
+type timing struct{ inner Evaluator }
+
+func (t timing) Eval(expr string) (int, error) {
+	start := time.Now()
+	defer func() { fmt.Println("   (medido:", time.Since(start) &gt;= 0, ")") }()
+	return t.inner.Eval(expr)
+}
+
+func main() {
+	// Los decoradores se apilan como capas: tracing(timing(base)).
+	var ev Evaluator = tracing{inner: timing{inner: sumEvaluator{}}}
+	ev.Eval("1 + 2 + 3")
+	ev.Eval("1 + x")
+}</code></pre>
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header"><span>$ go run ./patrones/decorator</span></div>
+<pre><code class="language-plaintext" data-out="ejemplos/patrones/decorator">-&gt; Eval("1 + 2 + 3")
+   (medido: true )
+&lt;- 6, err=&lt;nil&gt;
+-&gt; Eval("1 + x")
+   (medido: true )
+&lt;- 0, err=no es entero: "x"</code></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="p-facade" class="section slide" data-pattern="facade">
+            <h2>12. Facade</h2>
+            <div class="pat-meta">
+                <span class="meta-pill">Estructural</span>
+                <span class="meta-pill"><span data-icon="code"></span><code>ejemplos/patrones/facade</code></span>
+                <a class="meta-pill" href="https://refactoring.guru/es/design-patterns/catalog" target="_blank" rel="noopener"><span data-icon="link"></span>Catálogo de referencia</a>
+            </div>
+            <div class="grid-2">
+                <div>
+                    <div class="card card-primary">
+                        <h3 style="color: var(--primary);">Intención</h3>
+                        <p>Ofrecer una interfaz simple a un subsistema complejo.</p>
+                        <h4>Problema en ZeldaInterpreter</h4>
+                        <p>Ejecutar Monkey requiere crear lexer, parser, entorno, evaluar y revisar errores: demasiados pasos para quien solo quiere un resultado.</p>
+                    </div>
+                    <div class="grid-2">
+                        <div class="card card-success"><h3 style="color: var(--success);">Úsalo cuando…</h3><p>Para dar un punto de entrada sencillo a una librería o a un conjunto de paquetes.</p></div>
+                        <div class="card card-warning"><h3 style="color: var(--warning);">Evítalo si…</h3><p>Si la fachada empieza a crecer sin control y se vuelve un “objeto dios”.</p></div>
+                    </div>
+                    <div class="info-box"><strong>En Go:</strong> Un struct o función de alto nivel que coordina los paquetes internos.</div>
+                    <div class="tip-box"><strong>En el intérprete:</strong> Una función <code>zelda.Run(src) (string, error)</code> para incrustar el intérprete en otras aplicaciones.</div>
+                </div>
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>ejemplos/patrones/facade/main.go</span></div>
+<pre><code class="language-go" data-src="ejemplos/patrones/facade/main.go">// Facade: una interfaz simple frente a un subsistema complejo.
+// Ejemplo: Interpreter.Run esconde lexer, parser y evaluador detrás de un solo método.
+package main
+
+import (
+	"fmt"
+	"strconv"
+	"strings"
+)
+
+// --- Subsistema (muy simplificado) ---
+type lexer struct{}
+type parser struct{}
+type evaluator struct{ env map[string]int }
+
+func (lexer) Tokens(src string) []string { return strings.Fields(src) }
+
+func (parser) ParseLet(toks []string) (name, value string, err error) {
+	if len(toks) != 4 || toks[0] != "let" || toks[2] != "=" {
+		return "", "", fmt.Errorf("se esperaba: let &lt;nombre&gt; = &lt;valor&gt;")
+	}
+	return toks[1], toks[3], nil
+}
+
+func (e *evaluator) Bind(name, value string) (int, error) {
+	n, err := strconv.Atoi(value)
+	if err != nil {
+		v, ok := e.env[value]
+		if !ok {
+			return 0, fmt.Errorf("identifier not found: %s", value)
+		}
+		n = v
+	}
+	e.env[name] = n
+	return n, nil
+}
+
+// --- Fachada ---
+type Interpreter struct {
+	l lexer
+	p parser
+	e *evaluator
+}
+
+func New() *Interpreter { return &amp;Interpreter{e: &amp;evaluator{env: map[string]int{}}} }
+
+func (in *Interpreter) Run(src string) (string, error) {
+	name, value, err := in.p.ParseLet(in.l.Tokens(src))
+	if err != nil {
+		return "", err
+	}
+	n, err := in.e.Bind(name, value)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s = %d", name, n), nil
+}
+
+func main() {
+	z := New() // el cliente solo conoce New y Run
+	for _, src := range []string{"let x = 5", "let y = x", "let z = w", "x + 1"} {
+		out, err := z.Run(src)
+		if err != nil {
+			fmt.Printf("%-10s -&gt; error: %v\n", src, err)
+			continue
+		}
+		fmt.Printf("%-10s -&gt; %s\n", src, out)
+	}
+}</code></pre>
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header"><span>$ go run ./patrones/facade</span></div>
+<pre><code class="language-plaintext" data-out="ejemplos/patrones/facade">let x = 5  -&gt; x = 5
+let y = x  -&gt; y = 5
+let z = w  -&gt; error: identifier not found: w
+x + 1      -&gt; error: se esperaba: let &lt;nombre&gt; = &lt;valor&gt;</code></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="p-flyweight" class="section slide" data-pattern="flyweight">
+            <h2>13. Flyweight</h2>
+            <div class="pat-meta">
+                <span class="meta-pill">Estructural</span>
+                <span class="meta-pill"><span data-icon="code"></span><code>ejemplos/patrones/flyweight</code></span>
+                <a class="meta-pill" href="https://refactoring.guru/es/design-patterns/catalog" target="_blank" rel="noopener"><span data-icon="link"></span>Catálogo de referencia</a>
+            </div>
+            <div class="grid-2">
+                <div>
+                    <div class="card card-primary">
+                        <h3 style="color: var(--primary);">Intención</h3>
+                        <p>Compartir objetos inmutables en lugar de crear muchas copias idénticas.</p>
+                        <h4>Problema en ZeldaInterpreter</h4>
+                        <p>Un programa que itera mil veces crea miles de <code>Integer</code> con valores pequeños repetidos.</p>
+                    </div>
+                    <div class="grid-2">
+                        <div class="card card-success"><h3 style="color: var(--success);">Úsalo cuando…</h3><p>Cuando hay muchísimos objetos iguales e inmutables y la memoria importa.</p></div>
+                        <div class="card card-warning"><h3 style="color: var(--warning);">Evítalo si…</h3><p>Si los objetos son mutables: un cambio afectaría a todos los que los comparten.</p></div>
+                    </div>
+                    <div class="info-box"><strong>En Go:</strong> Un slice o mapa de instancias precreadas y una función fábrica que las reutiliza.</div>
+                    <div class="tip-box"><strong>En el intérprete:</strong> <code>TRUE</code>/<code>FALSE</code>/<code>NULL</code> ya son flyweights; un caché de enteros pequeños sería el siguiente paso.</div>
+                </div>
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>ejemplos/patrones/flyweight/main.go</span></div>
+<pre><code class="language-go" data-src="ejemplos/patrones/flyweight/main.go">// Flyweight: compartir objetos inmutables cuando hay muchísimos iguales.
+// Ejemplo: caché de enteros pequeños (como CPython) e "interning" de identificadores.
+package main
+
+import "fmt"
+
+type Integer struct{ Value int64 } // debe tratarse como INMUTABLE
+
+const minCached, maxCached = -5, 256
+
+var smallInts = func() []*Integer {
+	cache := make([]*Integer, maxCached-minCached+1)
+	for i := range cache {
+		cache[i] = &amp;Integer{Value: int64(i + minCached)}
+	}
+	return cache
+}()
+
+// NewInteger devuelve una instancia compartida para valores pequeños.
+func NewInteger(v int64) *Integer {
+	if v &gt;= minCached &amp;&amp; v &lt;= maxCached {
+		return smallInts[v-minCached]
+	}
+	return &amp;Integer{Value: v}
+}
+
+// Interner guarda un único string por nombre de identificador.
+type Interner struct{ pool map[string]*string }
+
+func (in *Interner) Intern(s string) *string {
+	if p, ok := in.pool[s]; ok {
+		return p
+	}
+	p := &amp;s
+	in.pool[s] = p
+	return p
+}
+
+func main() {
+	fmt.Println("7 compartido:   ", NewInteger(7) == NewInteger(7))
+	fmt.Println("1000 compartido:", NewInteger(1000) == NewInteger(1000))
+
+	in := &amp;Interner{pool: map[string]*string{}}
+	a, b := in.Intern("contador"), in.Intern("contador")
+	fmt.Println("mismo string:", a == b, "| tamaño del pool:", len(in.pool))
+}</code></pre>
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header"><span>$ go run ./patrones/flyweight</span></div>
+<pre><code class="language-plaintext" data-out="ejemplos/patrones/flyweight">7 compartido:    true
+1000 compartido: false
+mismo string: true | tamaño del pool: 1</code></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="p-proxy" class="section slide" data-pattern="proxy">
+            <h2>14. Proxy</h2>
+            <div class="pat-meta">
+                <span class="meta-pill">Estructural</span>
+                <span class="meta-pill"><span data-icon="code"></span><code>ejemplos/patrones/proxy</code></span>
+                <a class="meta-pill" href="https://refactoring.guru/es/design-patterns/catalog" target="_blank" rel="noopener"><span data-icon="link"></span>Catálogo de referencia</a>
+            </div>
+            <div class="grid-2">
+                <div>
+                    <div class="card card-primary">
+                        <h3 style="color: var(--primary);">Intención</h3>
+                        <p>Proveer un sustituto que controla el acceso al objeto real (protección, caché, carga perezosa, registro).</p>
+                        <h4>Problema en ZeldaInterpreter</h4>
+                        <p>Queremos impedir que se reasignen constantes, o evitar recalcular resultados costosos.</p>
+                    </div>
+                    <div class="grid-2">
+                        <div class="card card-success"><h3 style="color: var(--success);">Úsalo cuando…</h3><p>Control de acceso, memoización, objetos remotos o costosos de crear.</p></div>
+                        <div class="card card-warning"><h3 style="color: var(--warning);">Evítalo si…</h3><p>Si solo agrega una indirección sin beneficio real.</p></div>
+                    </div>
+                    <div class="info-box"><strong>En Go:</strong> Un struct que implementa la misma interfaz y delega en el objeto real.</div>
+                    <div class="tip-box"><strong>En el intérprete:</strong> Un <code>Environment</code> de solo lectura para constantes o un caché de funciones puras.</div>
+                </div>
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>ejemplos/patrones/proxy/main.go</span></div>
+<pre><code class="language-go" data-src="ejemplos/patrones/proxy/main.go">// Proxy: un sustituto que controla el acceso al objeto real.
+// Ejemplos: entorno con constantes protegidas y caché (memoización) de una función costosa.
+package main
+
+import (
+	"errors"
+	"fmt"
+)
+
+type Env interface {
+	Get(name string) (int, bool)
+	Set(name string, v int) error
+}
+
+type realEnv struct{ store map[string]int }
+
+func (e *realEnv) Get(n string) (int, bool) {
+	v, ok := e.store[n]
+	return v, ok
+}
+
+func (e *realEnv) Set(n string, v int) error {
+	e.store[n] = v
+	return nil
+}
+
+// protectedEnv es un proxy de protección: impide reasignar constantes.
+type protectedEnv struct {
+	real   Env
+	consts map[string]bool
+}
+
+func (p protectedEnv) Get(n string) (int, bool) { return p.real.Get(n) }
+func (p protectedEnv) Set(n string, v int) error {
+	if p.consts[n] {
+		return errors.New("no se puede reasignar la constante " + n)
+	}
+	return p.real.Set(n, v)
+}
+
+// cachedFib es un proxy de caché: evita recalcular.
+type cachedFib struct {
+	calls int
+	memo  map[int]int
+}
+
+func (c *cachedFib) Fib(n int) int {
+	if v, ok := c.memo[n]; ok {
+		return v
+	}
+	c.calls++
+	v := n
+	if n &gt;= 2 {
+		v = c.Fib(n-1) + c.Fib(n-2)
+	}
+	c.memo[n] = v
+	return v
+}
+
+func main() {
+	var env Env = protectedEnv{
+		real:   &amp;realEnv{store: map[string]int{"PI": 3}},
+		consts: map[string]bool{"PI": true},
+	}
+	fmt.Println("Set x: ", env.Set("x", 1))
+	fmt.Println("Set PI:", env.Set("PI", 4))
+
+	f := &amp;cachedFib{memo: map[int]int{}}
+	fmt.Println("fib(40) =", f.Fib(40), "con", f.calls, "cálculos reales")
+}</code></pre>
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header"><span>$ go run ./patrones/proxy</span></div>
+<pre><code class="language-plaintext" data-out="ejemplos/patrones/proxy">Set x:  &lt;nil&gt;
+Set PI: no se puede reasignar la constante PI
+fib(40) = 102334155 con 41 cálculos reales</code></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="comparativa" class="section slide">
+            <h2>15. Comparativa rápida</h2>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Patrón</th><th>Intención</th><th>En ZeldaInterpreter</th></tr></thead>
+                    <tbody><tr><td><a href="#p-factory-method">Factory Method</a></td><td>Delegar en una función o método la decisión de qué tipo concreto crear, devolviendo una abstracción.</td><td><code>lexer.New</code>, <code>parser.New</code> y <code>object.NewEnvironment</code> son fábricas simples; <code>NewPrinter(format)</code> lo sería con varios formatos.</td></tr><tr><td><a href="#p-abstract-factory">Abstract Factory</a></td><td>Crear familias completas de objetos relacionados que están diseñados para usarse juntos.</td><td>Un <code>Theme</code> del REPL que produce <code>Prompt</code> y <code>ErrorFormatter</code> coherentes entre sí.</td></tr><tr><td><a href="#p-builder">Builder</a></td><td>Construir un objeto complejo paso a paso, separando la construcción de su representación final.</td><td>Un <code>ProgramBuilder</code> para tests y <code>strings.Builder</code>/<code>bytes.Buffer</code> en todos los <code>String()</code> del AST.</td></tr><tr><td><a href="#p-prototype">Prototype</a></td><td>Crear nuevos objetos clonando uno existente en lugar de construirlos desde cero.</td><td><code>push</code> y <code>rest</code> del Cap. 4 crean arrays nuevos; un método <code>Clone()</code> generaliza la idea.</td></tr><tr><td><a href="#p-singleton">Singleton</a></td><td>Garantizar que exista una única instancia de un tipo y ofrecer un punto de acceso global a ella.</td><td><code>TRUE</code>, <code>FALSE</code> y <code>NULL</code> del evaluador (Semana 6) y el mapa <code>builtins</code> (Semana 8).</td></tr><tr><td><a href="#p-adapter">Adapter</a></td><td>Convertir la interfaz de un tipo existente en otra que el cliente espera, sin modificar ninguno de los dos.</td><td>Un <code>Source</code> del lexer adaptado desde <code>io.Reader</code>; el REPL ya recibe <code>io.Reader</code>/<code>io.Writer</code>.</td></tr><tr><td><a href="#p-bridge">Bridge</a></td><td>Separar una abstracción de su implementación para que ambas puedan evolucionar de forma independiente.</td><td>Un reporte de errores del parser que puede mostrarse en terminal o en la web del curso.</td></tr><tr><td><a href="#p-composite">Composite</a></td><td>Componer objetos en estructuras de árbol y tratar igual a las hojas y a los compuestos.</td><td>¡El AST completo! <code>Program</code> y <code>BlockStatement</code> contienen <code>Statement</code>s; <code>InfixExpression</code> contiene <code>Expression</code>s.</td></tr><tr><td><a href="#p-decorator">Decorator</a></td><td>Agregar responsabilidades a un objeto envolviéndolo en otro que implementa la misma interfaz.</td><td>El tracing del parser (<code>trace</code>/<code>untrace</code>) envuelto como decorador de <code>Eval</code>.</td></tr><tr><td><a href="#p-facade">Facade</a></td><td>Ofrecer una interfaz simple a un subsistema complejo.</td><td>Una función <code>zelda.Run(src) (string, error)</code> para incrustar el intérprete en otras aplicaciones.</td></tr><tr><td><a href="#p-flyweight">Flyweight</a></td><td>Compartir objetos inmutables en lugar de crear muchas copias idénticas.</td><td><code>TRUE</code>/<code>FALSE</code>/<code>NULL</code> ya son flyweights; un caché de enteros pequeños sería el siguiente paso.</td></tr><tr><td><a href="#p-proxy">Proxy</a></td><td>Proveer un sustituto que controla el acceso al objeto real (protección, caché, carga perezosa, registro).</td><td>Un <code>Environment</code> de solo lectura para constantes o un caché de funciones puras.</td></tr></tbody>
+                </table>
+            </div>
+            <div class="warn-box"><strong>Cuidado con la “patronitis”:</strong> un patrón agrega indirección. Úsalo cuando el problema que resuelve ya existe, no por si acaso. En Go, la solución más simple (una función, un <code>map</code>, una interfaz de un método) suele ser la correcta.</div>
+        </section>
+
+        <section id="simulador-zelda" class="section slide">
+            <h2>Simulador ZeldaInterpreter</h2>
+            <p>Abre la pestaña <strong>AST</strong>: el árbol que ves es un <strong>Composite</strong> (bloques que contienen sentencias que contienen expresiones), y su texto se arma con un <strong>Builder</strong> (<code>bytes.Buffer</code>).</p>
+            <div data-simulator data-stage="ast" data-code="let area = fn(b, h) { b * h / 2 };&#10;area(4, 3) + 1;"></div>
+        </section>
+
+        <section id="resumen" class="section slide">
+            <h2>16. Ideas clave</h2>
+            <div class="key-ideas"><div class="key-idea"><h3>Factory Method</h3><p>Delegar en una función o método la decisión de qué tipo concreto crear, devolviendo una abstracción.</p></div><div class="key-idea"><h3>Abstract Factory</h3><p>Crear familias completas de objetos relacionados que están diseñados para usarse juntos.</p></div><div class="key-idea"><h3>Builder</h3><p>Construir un objeto complejo paso a paso, separando la construcción de su representación final.</p></div><div class="key-idea"><h3>Prototype</h3><p>Crear nuevos objetos clonando uno existente en lugar de construirlos desde cero.</p></div><div class="key-idea"><h3>Singleton</h3><p>Garantizar que exista una única instancia de un tipo y ofrecer un punto de acceso global a ella.</p></div><div class="key-idea"><h3>Adapter</h3><p>Convertir la interfaz de un tipo existente en otra que el cliente espera, sin modificar ninguno de los dos.</p></div></div>
+            <div class="tip-box"><strong>Regla de oro en Go:</strong> empieza por lo más simple (funciones e interfaces pequeñas) y reconoce el patrón cuando aparezca; no al revés.</div>
+        </section>
+
+        <section id="taller" class="section slide">
+            <h2>17. Taller — Go V</h2>
+            <div class="card glass">
+                <h3><span data-icon="wrench"></span>Patrones aplicados a tu intérprete</h3>
+                <ol class="steps">
+                    <li>Ejecuta los 12 ejemplos: <code>cd ejemplos &amp;&amp; for d in patrones/*/; do go run ./$d; done</code>.</li>
+                    <li>Implementa un <strong>Facade</strong> <code>zelda.Run(src string) (string, error)</code> sobre tu intérprete real.</li>
+                    <li>Agrega un <strong>Decorator</strong> de traza a tu función <code>Eval</code> sin modificarla.</li>
+                    <li>Implementa el <strong>Flyweight</strong> de enteros pequeños en tu paquete <code>object</code> y mide cuántas asignaciones ahorra con <code>testing.B</code>.</li>
+                </ol>
+            </div>
+            <div class="exercise-cta">
+                <div>
+                    <h3>Guía de ejercicios · Go V</h3>
+                    <p>Identificar patrones, elegir el adecuado para un problema y aplicarlos en Go.</p>
+                </div>
+                <a class="btn-download" data-pdf-link href="#"><span data-icon="file-down"></span>Descargar PDF</a>
+            </div>
+        </section>
+
+        <nav class="class-footer-nav" data-course-footer aria-label="Navegación entre clases"></nav>
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/go.min.js"></script>
+    <script src="../assets/course.js"></script>
+    <script src="../assets/presentation.js"></script>
+    <script src="../assets/monkey.js"></script>
+    <script src="../assets/simulator.js"></script>
+    <script src="../assets/patrones.js"></script>
+</body>
+</html>

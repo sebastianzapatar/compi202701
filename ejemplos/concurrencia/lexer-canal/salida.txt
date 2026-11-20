@@ -1,0 +1,8 @@
+IDENT  "let"
+IDENT  "total"
+SYMBOL "="
+IDENT  "precio"
+SYMBOL "*"
+INT    "3"
+SYMBOL ";"
+EOF    ""

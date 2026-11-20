@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Semana 01 · Fundamentos de Go | Guía de ejercicios</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="worksheet.css">
+</head>
+<body class="student">
+
+<header class="sheet-header">
+  <div class="brand">
+    <span class="course">ZeldaInterpreter · Lenguajes y Compiladores · 2027-1</span>
+    <span class="book">Libro guía: <em>Writing An Interpreter In Go</em> — Thorsten Ball</span>
+  </div>
+  <div class="title-row">
+    <div>
+      <div class="kicker">Guía de ejercicios · Semana 01 de 08</div>
+      <h1>Fundamentos de Go para Compiladores</h1>
+      <div class="ref">Intro del libro (pp. 5–9) · Tipos, control de flujo, funciones, slices y maps</div>
+    </div>
+    <div class="week-badge" aria-hidden="true">01</div>
+  </div>
+</header>
+
+<div class="student-fields">
+  <div class="field"><label>Nombre</label><span></span></div>
+  <div class="field"><label>Código</label><span></span></div>
+  <div class="field small"><label>Fecha</label><span></span></div>
+  <div class="field small"><label>Nota</label><span></span></div>
+</div>
+
+<div class="intro">
+  <div class="goals">
+    <h2>Al terminar esta guía podrás…</h2>
+    <ul><li>Predecir el comportamiento de slices, maps y strings en Go.</li><li>Usar <code>switch</code>, <code>for</code> y múltiples valores de retorno de forma idiomática.</li><li>Escribir funciones de clasificación de caracteres, base del futuro Lexer.</li></ul>
+  </div>
+  <div class="instructions">
+    <h2>Instrucciones</h2>
+    <ul>
+      <li>Partes A y B: a mano, <strong>sin computador</strong>. Razona con el código del libro.</li>
+      <li>Parte C: entrega en tu repositorio <code>monkey</code>; <code>go test ./...</code> debe pasar.</li>
+      <li>Puntaje total: <strong>100 pts</strong> (+ reto opcional).</li>
+      <li>Clase de referencia: <code>clases/semana-01-go-fundamentos.html</code></li>
+    </ul>
+  </div>
+</div>
+
+<section class="part pa"><h2><span>Parte A · Conceptos</span><span class="part-pts">25 pts</span></h2><p class="part-desc">Responde con tus palabras. Se valora la justificación, no solo la respuesta.</p><div class="item"><div class="item-head"><span class="qnum">1</span><div class="qtext">Completa el <strong>valor cero</strong> (<em>zero value</em>) de cada tipo: <span class="pts">(5 pts)</span></div></div><div class="item-body"><table class="fill-table"><thead><tr><th>Declaración</th><th>Valor cero</th><th>¿Se puede usar directamente?</th></tr></thead><tbody><tr><td><code>var a int</code></td><td class="fill"></td><td class="fill"></td></tr><tr><td><code>var s string</code></td><td class="fill"></td><td class="fill"></td></tr><tr><td><code>var b bool</code></td><td class="fill"></td><td class="fill"></td></tr><tr><td><code>var xs []int</code></td><td class="fill"></td><td class="fill"></td></tr><tr><td><code>var m map[string]int</code></td><td class="fill"></td><td class="fill"></td></tr></tbody></table></div></div><div class="item"><div class="item-head"><span class="qnum">2</span><div class="qtext">¿Qué diferencia hay entre <code>var x int = 5</code> y <code>x := 5</code>? ¿En qué lugar del programa <strong>no</strong> se puede usar <code>:=</code>? <span class="pts">(4 pts)</span></div></div><div class="item-body"><div class="lines" style="--n:3" aria-hidden="true"></div></div></div><div class="item"><div class="item-head"><span class="qnum">3</span><div class="qtext">Marca los identificadores que son <strong>exportados</strong> (visibles desde otro paquete): <span class="pts">(4 pts)</span></div></div><div class="item-body"><ul class="options"><li><span class="box"></span><code>lexer.New</code></li><li><span class="box"></span><code>token.lookupIdent</code></li><li><span class="box"></span><code>Token.Literal</code></li><li><span class="box"></span><code>l.readChar</code></li><li><span class="box"></span><code>token.LookupIdent</code></li><li><span class="box"></span><code>ast.Program</code></li></ul><div class="lines" style="--n:1" aria-hidden="true"></div></div></div><div class="item"><div class="item-head"><span class="qnum">4</span><div class="qtext">Go solo tiene un ciclo: <code>for</code>. Escribe las <strong>tres formas</strong> en que se usa (estilo C, estilo while e infinito). <span class="pts">(6 pts)</span></div></div><div class="item-body"><div class="lines" style="--n:4" aria-hidden="true"></div></div></div><div class="item"><div class="item-head"><span class="qnum">5</span><div class="qtext">¿Qué imprime este programa? Explica por qué <code>s[0]</code> no imprime una letra. <span class="pts">(6 pts)</span></div></div><div class="item-body"><div class="code"><pre>s := &quot;monkey&quot;
+fmt.Println(s[0], s[1:4], len(s))</pre></div><div class="lines" style="--n:3" aria-hidden="true"></div></div></div></section><section class="part pb"><h2><span>Parte B · Trazas a mano</span><span class="part-pts">35 pts</span></h2><p class="part-desc">Resuelve en papel, sin ejecutar código. Muestra el razonamiento.</p><div class="item"><div class="item-head"><span class="qnum">6</span><div class="qtext">Predice la salida. Pista: dos slices pueden compartir el mismo arreglo subyacente. <span class="pts">(8 pts)</span></div></div><div class="item-body"><div class="code"><pre>nums := []int{1, 2, 3}
+otros := nums
+otros[0] = 99
+nums = append(nums, 4)
+fmt.Println(nums, otros, len(nums), len(otros))</pre></div><div class="lines" style="--n:2" aria-hidden="true"></div></div></div><div class="item"><div class="item-head"><span class="qnum">7</span><div class="qtext">Predice la salida (patrón <em>comma ok</em>): <span class="pts">(7 pts)</span></div></div><div class="item-body"><div class="code"><pre>kw := map[string]string{&quot;fn&quot;: &quot;FUNCTION&quot;, &quot;let&quot;: &quot;LET&quot;}
+t, ok := kw[&quot;if&quot;]
+fmt.Printf(&quot;%q %v\n&quot;, t, ok)
+kw[&quot;if&quot;] = &quot;IF&quot;
+fmt.Println(len(kw))</pre></div><div class="lines" style="--n:2" aria-hidden="true"></div></div></div><div class="item"><div class="item-head"><span class="qnum">8</span><div class="qtext">Completa la tabla con lo que retorna <code>clasificar</code> para cada carácter: <span class="pts">(10 pts)</span></div></div><div class="item-body"><div class="code"><pre>func clasificar(ch byte) string {
+    switch {
+    case ch &gt;= &#x27;0&#x27; &amp;&amp; ch &lt;= &#x27;9&#x27;:
+        return &quot;DIGITO&quot;
+    case ch == &#x27;_&#x27; || (ch &gt;= &#x27;a&#x27; &amp;&amp; ch &lt;= &#x27;z&#x27;):
+        return &quot;LETRA&quot;
+    case ch == &#x27; &#x27; || ch == &#x27;\n&#x27;:
+        return &quot;ESPACIO&quot;
+    default:
+        return &quot;OTRO&quot;
+    }
+}</pre></div><table class="fill-table"><thead><tr><th>ch</th><th>Resultado</th><th>ch</th><th>Resultado</th></tr></thead><tbody><tr><td><code>&#x27;7&#x27;</code></td><td class="fill"></td><td><code>&#x27;+&#x27;</code></td><td class="fill"></td></tr><tr><td><code>&#x27;x&#x27;</code></td><td class="fill"></td><td><code>&#x27; &#x27;</code></td><td class="fill"></td></tr><tr><td><code>&#x27;_&#x27;</code></td><td class="fill"></td><td><code>&#x27;X&#x27;</code></td><td class="fill"></td></tr></tbody></table></div></div><div class="item"><div class="item-head"><span class="qnum">9</span><div class="qtext">¿Por qué en Go no hace falta escribir <code>break</code> al final de cada <code>case</code>? ¿Qué palabra clave se usa si sí queremos “caer” al siguiente caso? <span class="pts">(4 pts)</span></div></div><div class="item-body"><div class="lines" style="--n:2" aria-hidden="true"></div></div></div><div class="item"><div class="item-head"><span class="qnum">10</span><div class="qtext">Escribe qué retorna <code>dividir(7, 0)</code> y cómo se debe llamar idiomáticamente: <span class="pts">(6 pts)</span></div></div><div class="item-body"><div class="code"><pre>func dividir(a, b int64) (int64, error) {
+    if b == 0 {
+        return 0, errors.New(&quot;división por cero&quot;)
+    }
+    return a / b, nil
+}</pre></div><div class="lines" style="--n:4" aria-hidden="true"></div></div></div></section><section class="part pc"><h2><span>Parte C · Programación en Go</span><span class="part-pts">40 pts</span></h2><p class="part-desc">Implementa en tu repositorio. Cada función debe tener su prueba <em>table-driven</em>.</p><div class="problem"><div class="problem-head"><span class="qnum">11</span><h3>Clasificadores de caracteres</h3><span class="pts">12 pts</span></div><div class="problem-body"><p>Implementa en el paquete <code>escaner</code>:</p><div class="code"><pre>func isLetter(ch byte) bool  // a-z, A-Z y &#x27;_&#x27;
+func isDigit(ch byte) bool   // 0-9
+func isSpace(ch byte) bool   // &#x27; &#x27;, &#x27;\t&#x27;, &#x27;\n&#x27;, &#x27;\r&#x27;</pre></div><p>Prueba al menos 10 casos en una tabla, incluyendo <code>'_'</code>, <code>'Z'</code>, <code>'0'</code>, <code>'9'</code>, <code>'\t'</code> y <code>'$'</code>.</p></div></div><div class="problem"><div class="problem-head"><span class="qnum">12</span><h3>Contador de piezas léxicas</h3><span class="pts">16 pts</span></div><div class="problem-body"><p>Escribe <code>contar(input string) map[string]int</code> que recorra el string <strong>con índices</strong> (no uses <code>strings.Fields</code>) y cuente <code>PALABRA</code>, <code>NUMERO</code> y <code>SIMBOLO</code> (cualquier carácter que no sea letra, dígito ni espacio).</p><div class="code"><pre>contar(&quot;let x = 10;&quot;)        // map[NUMERO:1 PALABRA:2 SIMBOLO:2]
+contar(&quot;add(5, 10)&quot;)         // map[NUMERO:2 PALABRA:1 SIMBOLO:3]
+contar(&quot;&quot;)                   // map[]</pre></div></div></div><div class="problem"><div class="problem-head"><span class="qnum">13</span><h3>Palabras reservadas</h3><span class="pts">12 pts</span></div><div class="problem-body"><p>Escribe <code>tipoPalabra(w string) string</code> que use un <code>map[string]string</code> de palabras reservadas (<code>fn</code>, <code>let</code>, <code>true</code>, <code>false</code>, <code>if</code>, <code>else</code>, <code>return</code>) y devuelva su tipo en mayúsculas (<code>FUNCTION</code>, <code>LET</code>, …) o <code>IDENT</code> si no es reservada. Usa el patrón <em>comma ok</em>.</p></div></div></section><section class="reto"><h2><span>Reto opcional · ¿Están balanceados?</span><span class="part-pts">+10 pts</span></h2><p>Escribe <code>balanceado(s string) bool</code> que verifique que <code>()</code>, <code>{}</code> y <code>[]</code> estén bien anidados, usando un <code>[]byte</code> como pila (<code>append</code> para push, <code>s[:len(s)-1]</code> para pop). Ej.: <code>"fn(x) { [x] }"</code> → <code>true</code>; <code>"(]"</code> → <code>false</code>; <code>"(("</code> → <code>false</code>.</p></section>
+
+<section class="rubric">
+  <h2><span>Rúbrica de evaluación</span></h2>
+  <table>
+    <thead><tr><th>Criterio</th><th>Descripción</th><th class="num">Pts</th></tr></thead>
+    <tbody><tr><td>Parte A</td><td>Respuestas correctas, con justificación en palabras propias (no copia literal del libro).</td><td class='num'>25</td></tr><tr><td>Parte B</td><td>Trazas completas y correctas; se muestra el razonamiento paso a paso.</td><td class='num'>35</td></tr><tr><td>Parte C · Funcionalidad</td><td>El código compila y hace lo pedido, incluidos los casos borde.</td><td class='num'>20</td></tr><tr><td>Parte C · Pruebas</td><td>Pruebas <em>table-driven</em> que cubren casos normales y de error; <code>go test ./...</code> en verde.</td><td class='num'>15</td></tr><tr><td>Parte C · Calidad</td><td>Código formateado con <code>gofmt</code>, nombres claros, sin código muerto.</td><td class='num'>5</td></tr><tr><td>Reto (opcional)</td><td>Funciona, tiene pruebas y se explica su diseño en el README.</td><td class='num'>+10</td></tr></tbody>
+  </table>
+</section>
+
+<footer class="sheet-footer">ZeldaInterpreter · Lenguajes y Compiladores 2027-1 · Semana 01 · Fundamentos de Go</footer>
+</body>
+</html>

@@ -1,0 +1,6 @@
+42
+{"result": "42"}
++--------+
+|42      |
++--------+
+error: formato desconocido: xml

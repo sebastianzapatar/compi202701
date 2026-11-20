@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Semana 04 · AST y Sentencias | Guía de ejercicios</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="worksheet.css">
+</head>
+<body class="student">
+
+<header class="sheet-header">
+  <div class="brand">
+    <span class="course">ZeldaInterpreter · Lenguajes y Compiladores · 2027-1</span>
+    <span class="book">Libro guía: <em>Writing An Interpreter In Go</em> — Thorsten Ball</span>
+  </div>
+  <div class="title-row">
+    <div>
+      <div class="kicker">Guía de ejercicios · Semana 04 de 08</div>
+      <h1>Análisis Sintáctico I: AST y Sentencias</h1>
+      <div class="ref">Libro: Capítulo 2.1 – 2.5 (pp. 28–45) · paquetes <code>ast</code> y <code>parser</code></div>
+    </div>
+    <div class="week-badge" aria-hidden="true">04</div>
+  </div>
+</header>
+
+<div class="student-fields">
+  <div class="field"><label>Nombre</label><span></span></div>
+  <div class="field"><label>Código</label><span></span></div>
+  <div class="field small"><label>Fecha</label><span></span></div>
+  <div class="field small"><label>Nota</label><span></span></div>
+</div>
+
+<div class="intro">
+  <div class="goals">
+    <h2>Al terminar esta guía podrás…</h2>
+    <ul><li>Distinguir sentencias de expresiones y dibujar su AST.</li><li>Trazar <code>curToken</code>/<code>peekToken</code> durante <code>parseLetStatement</code>.</li><li>Predecir los errores que reporta el parser.</li></ul>
+  </div>
+  <div class="instructions">
+    <h2>Instrucciones</h2>
+    <ul>
+      <li>Partes A y B: a mano, <strong>sin computador</strong>. Razona con el código del libro.</li>
+      <li>Parte C: entrega en tu repositorio <code>monkey</code>; <code>go test ./...</code> debe pasar.</li>
+      <li>Puntaje total: <strong>100 pts</strong> (+ reto opcional).</li>
+      <li>Clase de referencia: <code>clases/semana-04-parsing-sentencias.html</code></li>
+    </ul>
+  </div>
+</div>
+
+<section class="part pa"><h2><span>Parte A · Conceptos</span><span class="part-pts">25 pts</span></h2><p class="part-desc">Responde con tus palabras. Se valora la justificación, no solo la respuesta.</p><div class="item"><div class="item-head"><span class="qnum">1</span><div class="qtext">¿Qué hace “abstracto” a un AST? Menciona tres elementos del código fuente que <strong>no</strong> quedan en el árbol. <span class="pts">(5 pts)</span></div></div><div class="item-body"><div class="lines" style="--n:3" aria-hidden="true"></div></div></div><div class="item"><div class="item-head"><span class="qnum">2</span><div class="qtext">Clasifica cada fragmento como <strong>S</strong> (sentencia) o <strong>E</strong> (expresión): <span class="pts">(6 pts)</span></div></div><div class="item-body"><table class="fill-table"><thead><tr><th>Fragmento</th><th>S / E</th><th>Fragmento</th><th>S / E</th></tr></thead><tbody><tr><td><code>let x = 5;</code></td><td class="fill"></td><td><code>fn(x) { x }</code></td><td class="fill"></td></tr><tr><td><code>5 + 5</code></td><td class="fill"></td><td><code>add(1, 2)</code></td><td class="fill"></td></tr><tr><td><code>return x;</code></td><td class="fill"></td><td><code>if (x) { 1 }</code></td><td class="fill"></td></tr></tbody></table></div></div><div class="item"><div class="item-head"><span class="qnum">3</span><div class="qtext">¿Para qué sirven los métodos vacíos <code>statementNode()</code> y <code>expressionNode()</code>? <span class="pts">(4 pts)</span></div></div><div class="item-body"><div class="lines" style="--n:2" aria-hidden="true"></div></div></div><div class="item"><div class="item-head"><span class="qnum">4</span><div class="qtext">¿Qué garantiza <code>expectPeek(t)</code>? ¿Qué pasa con <code>curToken</code> cuando falla? <span class="pts">(5 pts)</span></div></div><div class="item-body"><div class="lines" style="--n:3" aria-hidden="true"></div></div></div><div class="item"><div class="item-head"><span class="qnum">5</span><div class="qtext">¿Por qué el parser acumula errores en un slice en vez de detenerse en el primero? <span class="pts">(5 pts)</span></div></div><div class="item-body"><div class="lines" style="--n:2" aria-hidden="true"></div></div></div></section><section class="part pb"><h2><span>Parte B · Trazas a mano</span><span class="part-pts">35 pts</span></h2><p class="part-desc">Resuelve en papel, sin ejecutar código. Muestra el razonamiento.</p><div class="item"><div class="item-head"><span class="qnum">6</span><div class="qtext">Dibuja el AST (nodo <code>*ast.Program</code> como raíz) del siguiente programa, indicando el tipo de cada nodo y sus campos: <span class="pts">(8 pts)</span></div></div><div class="item-body"><div class="code"><pre>let total = precio;
+return total;</pre></div><div class="draw" style="height:48mm"><span>Espacio para dibujar</span></div></div></div><div class="item"><div class="item-head"><span class="qnum">7</span><div class="qtext">Traza <code>ParseProgram()</code> para <code>let x = 5;</code> (versión Cap. 2.5). Completa el estado <strong>después</strong> de cada acción: <span class="pts">(10 pts)</span></div></div><div class="item-body"><table class="fill-table"><thead><tr><th>#</th><th>Acción</th><th>curToken</th><th>peekToken</th></tr></thead><tbody><tr><td>1</td><td>New(): 2× nextToken()</td><td class="fill"></td><td class="fill"></td></tr><tr><td>2</td><td>expectPeek(IDENT)</td><td class="fill"></td><td class="fill"></td></tr><tr><td>3</td><td>expectPeek(ASSIGN)</td><td class="fill"></td><td class="fill"></td></tr><tr><td>4</td><td>for !curTokenIs(SEMICOLON) (al salir)</td><td class="fill"></td><td class="fill"></td></tr><tr><td>5</td><td>ParseProgram: nextToken()</td><td class="fill"></td><td class="fill"></td></tr></tbody></table></div></div><div class="item"><div class="item-head"><span class="qnum">8</span><div class="qtext">Escribe exactamente los mensajes que devuelve <code>p.Errors()</code> para este input (versión Cap. 2.5): <span class="pts">(9 pts)</span></div></div><div class="item-body"><div class="code"><pre>let x 5;
+let = 10;
+let 838383;</pre></div><div class="lines" style="--n:4" aria-hidden="true"></div></div></div><div class="item"><div class="item-head"><span class="qnum">9</span><div class="qtext">La versión del Cap. 2.5 <strong>no</strong> reporta error para <code>let y = ;</code>. ¿Por qué? ¿Y qué ocurre con <code>let x = 5</code> (sin punto y coma) al final del input? <span class="pts">(8 pts)</span></div></div><div class="item-body"><div class="lines" style="--n:4" aria-hidden="true"></div></div></div></section><section class="part pc"><h2><span>Parte C · Programación en Go</span><span class="part-pts">40 pts</span></h2><p class="part-desc">Implementa en tu repositorio. Cada función debe tener su prueba <em>table-driven</em>.</p><div class="problem"><div class="problem-head"><span class="qnum">10</span><h3><code>String()</code> para los nodos</h3><span class="pts">14 pts</span></div><div class="problem-body"><p>Agrega <code>String() string</code> a la interfaz <code>Node</code> e impleméntalo en <code>Program</code>, <code>LetStatement</code>, <code>ReturnStatement</code> e <code>Identifier</code>. Haz pasar la prueba del libro:</p><div class="code"><pre>program := &amp;Program{
+    Statements: []Statement{
+        &amp;LetStatement{
+            Token: token.Token{Type: token.LET, Literal: &quot;let&quot;},
+            Name:  &amp;Identifier{Token: token.Token{Type: token.IDENT, Literal: &quot;myVar&quot;}, Value: &quot;myVar&quot;},
+            Value: &amp;Identifier{Token: token.Token{Type: token.IDENT, Literal: &quot;anotherVar&quot;}, Value: &quot;anotherVar&quot;},
+        },
+    },
+}
+if program.String() != &quot;let myVar = anotherVar;&quot; { t.Errorf(...) }</pre></div></div></div><div class="problem"><div class="problem-head"><span class="qnum">11</span><h3>Sin ciclos infinitos</h3><span class="pts">12 pts</span></div><div class="problem-body"><p>Corrige <code>parseLetStatement</code> y <code>parseReturnStatement</code> para que se detengan también en <code>EOF</code>. Escribe una prueba con <code>let x = 5</code> (sin <code>;</code>) que termine y produzca 1 sentencia.</p></div></div><div class="problem"><div class="problem-head"><span class="qnum">12</span><h3>Probar los errores</h3><span class="pts">14 pts</span></div><div class="problem-body"><p>Escribe <code>TestLetStatementErrors</code> (table-driven) que verifique el <strong>mensaje exacto</strong> y la <strong>cantidad</strong> de errores para al menos 4 entradas inválidas, incluidas las de la pregunta 8.</p></div></div></section><section class="reto"><h2><span>Reto opcional · Sentencia <code>const</code></span><span class="part-pts">+10 pts</span></h2><p>Agrega <code>const NOMBRE = expresión;</code>: token <code>CONST</code>, palabra reservada, nodo <code>ConstStatement</code> y su caso en <code>parseStatement</code>. Escribe <code>TestConstStatements</code> siguiendo el estilo de <code>TestLetStatements</code>.</p></section>
+
+<section class="rubric">
+  <h2><span>Rúbrica de evaluación</span></h2>
+  <table>
+    <thead><tr><th>Criterio</th><th>Descripción</th><th class="num">Pts</th></tr></thead>
+    <tbody><tr><td>Parte A</td><td>Respuestas correctas, con justificación en palabras propias (no copia literal del libro).</td><td class='num'>25</td></tr><tr><td>Parte B</td><td>Trazas completas y correctas; se muestra el razonamiento paso a paso.</td><td class='num'>35</td></tr><tr><td>Parte C · Funcionalidad</td><td>El código compila y hace lo pedido, incluidos los casos borde.</td><td class='num'>20</td></tr><tr><td>Parte C · Pruebas</td><td>Pruebas <em>table-driven</em> que cubren casos normales y de error; <code>go test ./...</code> en verde.</td><td class='num'>15</td></tr><tr><td>Parte C · Calidad</td><td>Código formateado con <code>gofmt</code>, nombres claros, sin código muerto.</td><td class='num'>5</td></tr><tr><td>Reto (opcional)</td><td>Funciona, tiene pruebas y se explica su diseño en el README.</td><td class='num'>+10</td></tr></tbody>
+  </table>
+</section>
+
+<footer class="sheet-footer">ZeldaInterpreter · Lenguajes y Compiladores 2027-1 · Semana 04 · AST y Sentencias</footer>
+</body>
+</html>

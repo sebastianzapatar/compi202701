@@ -1,0 +1,6 @@
+# Solucionarios: solo para el docente, no publicar en GitHub Pages
+ejercicios/solucionario/
+.DS_Store
+__pycache__/
+zeldainterpreter/zelda
+zeldainterpreter/zelda.exe

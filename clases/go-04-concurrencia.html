@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Go IV: Concurrencia | ZeldaInterpreter · Lenguajes y Compiladores 2027-1</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css">
+    <link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body data-week="go4" data-week-num="2">
+    <a class="skip-link" href="#contenido">Saltar al contenido</a>
+
+    <aside class="sidebar">
+        <div class="logo">
+            <a href="../index.html">
+                <h1 class="brand"><span class="brand-logo" data-logo="56"></span><span class="brand-name">ZeldaInterpreter</span></h1>
+                <p class="logo-subtitle">Go IV · Concurrencia</p>
+            </a>
+        </div>
+
+        <a href="../index.html" class="back-link"><span data-icon="home"></span>Portal del Curso</a>
+
+        <button type="button" class="present-btn" id="toggle-slides-btn" aria-pressed="false">
+            <span data-icon="presentation"></span>Modo Presentación <kbd>P</kbd>
+        </button>
+        <a class="pdf-btn" data-pdf-link href="#"><span data-icon="file-down"></span>Ejercicios del módulo (PDF)</a>
+
+        <nav>
+            <div class="nav-group-title">Contenido de la Clase</div>
+            <ul>
+                <li><a href="#portada" class="active">Portada y objetivos</a></li>
+                <li><a href="#conc-vs-par">1. Concurrencia vs paralelismo</a></li>
+                <li><a href="#goroutines">2. Goroutines y WaitGroup</a></li>
+                <li><a href="#carreras">3. Condiciones de carrera y Mutex</a></li>
+                <li><a href="#sim-carrera">4. Simulador: condición de carrera</a></li>
+                <li><a href="#canales">5. Canales</a></li>
+                <li><a href="#sim-canal">6. Simulador: canal lexer → parser</a></li>
+                <li><a href="#lexer-concurrente">7. Un lexer concurrente</a></li>
+                <li><a href="#select-context">8. select, timeouts y context</a></li>
+                <li><a href="#patrones-conc">9. Pipeline y worker pool</a></li>
+                <li><a href="#errores-comunes">10. Errores comunes</a></li>
+                <li><a href="#en-zelda">11. Concurrencia en ZeldaInterpreter</a></li>
+                <li><a href="#simulador-zelda">Simulador ZeldaInterpreter</a></li>
+                <li><a href="#resumen">12. Ideas clave</a></li>
+                <li><a href="#taller">13. Taller</a></li>
+            </ul>
+            <div data-course-nav></div>
+        </nav>
+
+        <div class="sidebar-footer">Bloque I ampliado · Módulo Go IV</div>
+    </aside>
+
+    <main class="content" id="contenido">
+
+        <!-- ==================== PORTADA ==================== -->
+        <header id="portada" class="hero slide">
+            <div class="hero-badge accent"><span data-icon="zap"></span>Go IV · Bloque I ampliado</div>
+            <h1>Concurrencia en Go: <span class="gradient-text">Goroutines, Canales y Sincronización</span></h1>
+            <p>La concurrencia es la característica más famosa de Go. Aprenderemos a lanzar goroutines, comunicarlas con canales, evitar condiciones de carrera y aplicar patrones como <em>pipelines</em> y <em>worker pools</em>, siempre con ejemplos del mundo de los intérpretes.</p>
+            <div class="hero-meta">
+                <span class="meta-pill"><span data-icon="code"></span>Código ejecutable en <code>ejemplos/concurrencia/</code></span>
+                <span class="meta-pill"><span data-icon="flask"></span>Simuladores de carrera y de canales</span>
+            </div>
+            <div class="objectives" aria-label="Objetivos de la clase">
+                <div class="objective"><span class="num">1</span><span>Distinguir concurrencia de paralelismo y lanzar goroutines con seguridad.</span></div>
+                <div class="objective"><span class="num">2</span><span>Detectar y corregir condiciones de carrera con <code>Mutex</code> y <code>-race</code>.</span></div>
+                <div class="objective"><span class="num">3</span><span>Predecir cuándo un envío o recepción en un canal se bloquea.</span></div>
+                <div class="objective"><span class="num">4</span><span>Construir pipelines y worker pools con <code>select</code> y <code>context</code>.</span></div>
+            </div>
+        </header>
+
+        <!-- ==================== 1 ==================== -->
+        <section id="conc-vs-par" class="section slide">
+            <h2>1. Concurrencia no es paralelismo</h2>
+            <div class="grid-2">
+                <div class="card card-primary">
+                    <h3 style="color: var(--primary);">Concurrencia</h3>
+                    <p>Es una forma de <strong>estructurar</strong> un programa como tareas independientes que pueden progresar de forma intercalada. Es sobre <em>diseño</em>.</p>
+                    <p style="font-size:.88rem">Ej.: un REPL que lee la entrada mientras otra tarea evalúa con un límite de tiempo.</p>
+                </div>
+                <div class="card card-accent">
+                    <h3 style="color: var(--accent);">Paralelismo</h3>
+                    <p>Es <strong>ejecutar</strong> varias tareas literalmente al mismo tiempo en varios núcleos. Es sobre <em>ejecución</em>.</p>
+                    <p style="font-size:.88rem">Ej.: evaluar 1000 archivos <code>.mk</code> usando los 8 núcleos del equipo.</p>
+                </div>
+            </div>
+            <div class="info-box">
+                <strong>En Go:</strong> escribes código concurrente con goroutines y canales; el <em>runtime</em> decide si se ejecuta en paralelo según <code>runtime.GOMAXPROCS</code> (por defecto, el número de núcleos). La idea clave del lenguaje: <em>“no comuniques compartiendo memoria; comparte memoria comunicando”</em>.
+            </div>
+        </section>
+
+        <!-- ==================== 2 ==================== -->
+        <section id="goroutines" class="section slide">
+            <h2>2. Goroutines y <code>sync.WaitGroup</code></h2>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>ejemplos/concurrencia/goroutines/main.go</span></div>
+<pre><code class="language-go" data-src="ejemplos/concurrencia/goroutines/main.go">// Goroutines, WaitGroup y Mutex: contar tokens de varios programas en paralelo.
+package main
+
+import (
+	"fmt"
+	"strings"
+	"sync"
+)
+
+func countTokens(src string) int { return len(strings.Fields(src)) }
+
+func main() {
+	programs := []string{
+		"let x = 5 ;",
+		"let add = fn ( a , b ) { a + b } ;",
+		"add ( 1 , 2 ) ;",
+	}
+
+	var (
+		wg    sync.WaitGroup
+		mu    sync.Mutex
+		total int
+	)
+	for i, p := range programs {
+		wg.Add(1)
+		go func() { // desde Go 1.22 cada iteración tiene sus propias i y p
+			defer wg.Done()
+			n := countTokens(p)
+			mu.Lock() // sección crítica: una sola goroutine a la vez
+			total += n
+			mu.Unlock()
+			fmt.Printf("programa %d: %d tokens\n", i, n)
+		}()
+	}
+	wg.Wait() // esperar a que todas terminen
+	fmt.Println("total:", total)
+}</code></pre>
+                </div>
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>$ go run ./concurrencia/goroutines  (el orden puede variar)</span></div>
+<pre><code class="language-plaintext" data-out="ejemplos/concurrencia/goroutines">programa 0: 5 tokens
+programa 1: 15 tokens
+programa 2: 7 tokens
+total: 27</code></pre>
+                    </div>
+                    <ul class="feature-list">
+                        <li><code>go f()</code> lanza una goroutine: un hilo ligero (empieza con ~2 KB de pila) gestionado por el runtime.</li>
+                        <li>Cuando <code>main</code> termina, <strong>todas</strong> las goroutines mueren: por eso esperamos con <code>wg.Wait()</code>.</li>
+                        <li>Patrón: <code>wg.Add(1)</code> antes de lanzar, <code>defer wg.Done()</code> dentro.</li>
+                        <li>El orden de las líneas impresas <strong>no está garantizado</strong>.</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 3 ==================== -->
+        <section id="carreras" class="section slide">
+            <h2>3. Condiciones de carrera y <code>sync.Mutex</code></h2>
+            <p>Una <strong>condición de carrera</strong> ocurre cuando dos goroutines acceden a la misma variable al mismo tiempo y al menos una escribe. <code>total += n</code> parece una operación, pero son tres: <strong>leer</strong>, <strong>sumar</strong> y <strong>escribir</strong>.</p>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>Con carrera (incorrecto)</span></div>
+<pre><code class="language-go">var total int
+for i := 0; i &lt; 1000; i++ {
+    wg.Add(1)
+    go func() {
+        defer wg.Done()
+        total++ // leer, sumar, escribir: ¡se intercalan!
+    }()
+}
+wg.Wait()
+fmt.Println(total) // a veces 1000, a veces 987, 994...</code></pre>
+                </div>
+                <div class="code-block">
+                    <div class="code-header"><span>Corregido</span></div>
+<pre><code class="language-go">var (
+    mu    sync.Mutex
+    total int
+)
+go func() {
+    defer wg.Done()
+    mu.Lock()
+    total++ // sección crítica
+    mu.Unlock()
+}()
+
+// Alternativas: sync/atomic para contadores,
+// sync.RWMutex si hay muchas más lecturas que escrituras.</code></pre>
+                </div>
+            </div>
+            <div class="tip-box">
+                <strong>Detector de carreras:</strong> <code>go run -race .</code> y <code>go test -race ./...</code> instrumentan el programa y reportan cada acceso concurrente sin sincronizar. Úsalo siempre que haya goroutines.
+            </div>
+        </section>
+
+        <!-- ==================== 4: SIM CARRERA ==================== -->
+        <section id="sim-carrera" class="section slide">
+            <h2>4. Simulador: condición de carrera paso a paso</h2>
+            <p>Dos goroutines ejecutan <code>counter++</code> (leer → sumar → escribir). Tú decides el orden en que el planificador las ejecuta. El resultado correcto es <strong>2</strong>.</p>
+            <div class="playground">
+                <div class="playground-actions">
+                    <button type="button" class="btn-pill primary" data-race="g1">Paso G1</button>
+                    <button type="button" class="btn-pill primary" data-race="g2">Paso G2</button>
+                    <button type="button" class="btn-pill" data-race="random">Paso aleatorio</button>
+                    <button type="button" class="btn-pill" data-race="reset">Reiniciar</button>
+                    <label class="race-toggle"><input type="checkbox" id="race-mutex"> Usar <code>sync.Mutex</code></label>
+                    <button type="button" class="btn-pill" data-race="many">Ejecutar 1000 veces</button>
+                </div>
+                <div class="race-grid" id="race-grid" aria-live="polite"></div>
+                <div class="viz-label" style="margin-top:1rem">Bitácora del planificador</div>
+                <div class="viz-panel"><table class="trace-table"><tbody id="race-log"></tbody></table></div>
+                <div class="viz-output" id="race-stats" style="margin-top:.9rem"></div>
+            </div>
+        </section>
+
+        <!-- ==================== 5 ==================== -->
+        <section id="canales" class="section slide">
+            <h2>5. Canales: comunicar en vez de compartir</h2>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>Operaciones básicas</span></div>
+<pre><code class="language-go">ch := make(chan Token)     // sin buffer
+bc := make(chan Token, 4)  // con buffer de 4
+
+ch &lt;- tok        // enviar
+tok := &lt;-ch      // recibir
+tok, ok := &lt;-ch  // ok == false si el canal está cerrado y vacío
+close(ch)        // solo el EMISOR cierra
+
+for tok := range ch { ... } // recibe hasta que se cierre
+
+// Tipos direccionales: documentan y restringen el uso
+func lex(src string) &lt;-chan Token      // solo recibir
+func worker(out chan&lt;- Result)         // solo enviar</code></pre>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Operación</th><th>Sin buffer</th><th>Con buffer (cap N)</th></tr></thead>
+                        <tbody>
+                            <tr><td>Enviar</td><td>Bloquea hasta que alguien reciba</td><td>Bloquea solo si hay N elementos</td></tr>
+                            <tr><td>Recibir</td><td>Bloquea hasta que alguien envíe</td><td>Bloquea solo si está vacío</td></tr>
+                            <tr><td>Recibir de cerrado</td><td colspan="2">Devuelve los restantes; luego el valor cero y <code>ok == false</code></td></tr>
+                            <tr><td>Enviar a cerrado</td><td colspan="2"><strong>panic</strong></td></tr>
+                            <tr><td>Canal <code>nil</code></td><td colspan="2">Bloquea para siempre (útil para desactivar un caso de <code>select</code>)</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 6: SIM CANAL ==================== -->
+        <section id="sim-canal" class="section slide">
+            <h2>6. Simulador: un canal entre el lexer y el parser</h2>
+            <p>El lexer envía los tokens de <code>let x = 5;</code> y el parser los recibe. Cambia la capacidad del canal y descubre cuándo se bloquea cada goroutine.</p>
+            <div class="playground">
+                <div class="playground-actions">
+                    <label class="race-toggle" for="chan-cap">Capacidad:
+                        <select id="chan-cap" class="hud-select" style="display:inline-block">
+                            <option value="0">0 (sin buffer)</option><option value="1">1</option><option value="2" selected>2</option><option value="4">4</option>
+                        </select>
+                    </label>
+                    <button type="button" class="btn-pill primary" data-chan="send">Lexer: ch &lt;- tok</button>
+                    <button type="button" class="btn-pill primary" data-chan="recv">Parser: &lt;-ch</button>
+                    <button type="button" class="btn-pill" data-chan="reset">Reiniciar</button>
+                </div>
+                <div class="chan-stage" id="chan-stage" aria-live="polite"></div>
+                <div class="viz-output" id="chan-log" style="margin-top:.9rem"></div>
+            </div>
+        </section>
+
+        <!-- ==================== 7 ==================== -->
+        <section id="lexer-concurrente" class="section slide">
+            <h2>7. Un lexer concurrente</h2>
+            <p>El lexer corre en su propia goroutine y el parser consume con <code>range</code>. Este diseño lo popularizó Rob Pike en su charla <em>Lexical Scanning in Go</em> y lo usa el paquete <code>text/template</code> de la biblioteca estándar.</p>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>ejemplos/concurrencia/lexer-canal/main.go</span></div>
+<pre><code class="language-go" data-src="ejemplos/concurrencia/lexer-canal/main.go">// Un lexer concurrente: produce tokens en una goroutine y los envía por un canal.
+// El consumidor (el parser) los recibe con range hasta que el canal se cierra.
+package main
+
+import (
+	"fmt"
+	"unicode"
+)
+
+type Token struct{ Type, Literal string }
+
+func lex(input string) &lt;-chan Token {
+	out := make(chan Token, 4) // buffer: el lexer puede adelantarse hasta 4 tokens
+	go func() {
+		defer close(out) // cerrar avisa al consumidor que no hay más tokens
+		for i := 0; i &lt; len(input); {
+			ch := rune(input[i])
+			switch {
+			case unicode.IsSpace(ch):
+				i++
+			case unicode.IsLetter(ch):
+				start := i
+				for i &lt; len(input) &amp;&amp; unicode.IsLetter(rune(input[i])) {
+					i++
+				}
+				out &lt;- Token{"IDENT", input[start:i]}
+			case unicode.IsDigit(ch):
+				start := i
+				for i &lt; len(input) &amp;&amp; unicode.IsDigit(rune(input[i])) {
+					i++
+				}
+				out &lt;- Token{"INT", input[start:i]}
+			default:
+				out &lt;- Token{"SYMBOL", string(ch)}
+				i++
+			}
+		}
+		out &lt;- Token{"EOF", ""}
+	}()
+	return out
+}
+
+func main() {
+	for tok := range lex("let total = precio * 3;") {
+		fmt.Printf("%-6s %q\n", tok.Type, tok.Literal)
+	}
+}</code></pre>
+                </div>
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>$ go run ./concurrencia/lexer-canal</span></div>
+<pre><code class="language-plaintext" data-out="ejemplos/concurrencia/lexer-canal">IDENT  "let"
+IDENT  "total"
+SYMBOL "="
+IDENT  "precio"
+SYMBOL "*"
+INT    "3"
+SYMBOL ";"
+EOF    ""</code></pre>
+                    </div>
+                    <div class="warn-box">
+                        <strong>¿Y si el parser deja de leer a la mitad</strong> (por ejemplo, por un error de sintaxis)? El lexer quedaría bloqueado para siempre en <code>out &lt;- tok</code>: una <em>goroutine leak</em>. Solución: pasar un <code>context</code> o un canal <code>done</code> y usar <code>select</code> al enviar.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 8 ==================== -->
+        <section id="select-context" class="section slide">
+            <h2>8. <code>select</code>, timeouts y <code>context</code></h2>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>select: esperar varios canales a la vez</span></div>
+<pre><code class="language-go">select {
+case tok := &lt;-tokens:
+    fmt.Println("token:", tok)
+case err := &lt;-errs:
+    fmt.Println("error:", err)
+case &lt;-time.After(2 * time.Second):
+    fmt.Println("timeout: ¿recursión infinita?")
+case &lt;-ctx.Done():
+    return ctx.Err() // cancelado desde afuera
+default:
+    // opcional: no bloquear si nada está listo
+}</code></pre>
+                </div>
+                <div class="code-block">
+                    <div class="code-header"><span>Evaluar con límite de tiempo</span></div>
+<pre><code class="language-go">func EvalWithTimeout(program *ast.Program, d time.Duration) (object.Object, error) {
+    ctx, cancel := context.WithTimeout(context.Background(), d)
+    defer cancel()
+
+    done := make(chan object.Object, 1) // buffer 1: evita leak
+    go func() {
+        done &lt;- evaluator.Eval(program, object.NewEnvironment())
+    }()
+
+    select {
+    case res := &lt;-done:
+        return res, nil
+    case &lt;-ctx.Done():
+        return nil, fmt.Errorf("evaluación cancelada: %w", ctx.Err())
+    }
+}</code></pre>
+                </div>
+            </div>
+            <div class="info-box">
+                <strong>Ojo:</strong> en el ejemplo de la derecha, si se acaba el tiempo la goroutine del evaluador <em>sigue corriendo</em> en segundo plano. Para detenerla de verdad, el evaluador tendría que revisar <code>ctx.Done()</code> periódicamente (por ejemplo, en cada llamada a función). Es un buen reto para el taller.
+            </div>
+        </section>
+
+        <!-- ==================== 9 ==================== -->
+        <section id="patrones-conc" class="section slide">
+            <h2>9. Pipeline, fan-out/fan-in y worker pool</h2>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>ejemplos/concurrencia/pipeline/main.go</span></div>
+<pre><code class="language-go" data-src="ejemplos/concurrencia/pipeline/main.go">// Worker pool + fan-out/fan-in + context: evaluar muchos programas en paralelo con timeout.
+package main
+
+import (
+	"context"
+	"fmt"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+)
+
+type Job struct {
+	ID  int
+	Src string
+}
+
+type Result struct {
+	ID    int
+	Value int
+	Err   error
+}
+
+// evalSum "evalúa" programas de la forma "1 + 2 + 3" y simula trabajo lento.
+func evalSum(ctx context.Context, src string) (int, error) {
+	select {
+	case &lt;-time.After(time.Duration(len(src)) * 5 * time.Millisecond):
+	case &lt;-ctx.Done():
+		return 0, ctx.Err() // cancelado o se acabó el tiempo
+	}
+	total := 0
+	for _, part := range strings.Split(src, "+") {
+		n, err := strconv.Atoi(strings.TrimSpace(part))
+		if err != nil {
+			return 0, fmt.Errorf("token inválido %q", strings.TrimSpace(part))
+		}
+		total += n
+	}
+	return total, nil
+}
+
+func worker(ctx context.Context, jobs &lt;-chan Job, results chan&lt;- Result, wg *sync.WaitGroup) {
+	defer wg.Done()
+	for j := range jobs {
+		v, err := evalSum(ctx, j.Src)
+		results &lt;- Result{ID: j.ID, Value: v, Err: err}
+	}
+}
+
+func main() {
+	ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
+	defer cancel()
+
+	programs := []string{"1 + 2", "10 + 20 + 30", "4 + x", "1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1"}
+	jobs := make(chan Job)
+	results := make(chan Result)
+
+	var wg sync.WaitGroup
+	for range 2 { // fan-out: 2 workers comparten el canal jobs
+		wg.Add(1)
+		go worker(ctx, jobs, results, &amp;wg)
+	}
+
+	go func() { // productor
+		defer close(jobs)
+		for i, p := range programs {
+			jobs &lt;- Job{ID: i, Src: p}
+		}
+	}()
+
+	go func() { // fan-in: cerrar results cuando todos los workers terminen
+		wg.Wait()
+		close(results)
+	}()
+
+	for r := range results {
+		if r.Err != nil {
+			fmt.Printf("programa %d: error: %v\n", r.ID, r.Err)
+			continue
+		}
+		fmt.Printf("programa %d = %d\n", r.ID, r.Value)
+	}
+}</code></pre>
+                </div>
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>$ go run ./concurrencia/pipeline  (el orden puede variar)</span></div>
+<pre><code class="language-plaintext" data-out="ejemplos/concurrencia/pipeline">programa 0 = 3
+programa 2: error: token inválido "x"
+programa 1 = 60
+programa 3: error: context deadline exceeded</code></pre>
+                    </div>
+                    <div class="pipeline" style="margin:1rem 0">
+                        <div class="pipeline-step">Productor<small>jobs &lt;- Job</small></div>
+                        <span class="pipeline-arrow">→</span>
+                        <div class="pipeline-step active-step">2 workers<small>fan-out</small></div>
+                        <span class="pipeline-arrow">→</span>
+                        <div class="pipeline-step">results<small>fan-in</small></div>
+                    </div>
+                    <ul class="feature-list">
+                        <li><strong>Fan-out:</strong> varios workers leen del mismo canal <code>jobs</code>.</li>
+                        <li><strong>Fan-in:</strong> todos escriben en <code>results</code>; una goroutine lo cierra tras <code>wg.Wait()</code>.</li>
+                        <li><strong>context:</strong> el programa 3 tarda más que el timeout y se cancela.</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 10 ==================== -->
+        <section id="errores-comunes" class="section slide">
+            <h2>10. Errores comunes (y cómo reconocerlos)</h2>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Error</th><th>Síntoma</th><th>Solución</th></tr></thead>
+                    <tbody>
+                        <tr><td>Deadlock</td><td><code>fatal error: all goroutines are asleep - deadlock!</code></td><td>Que alguien reciba lo que se envía; usar buffer o una goroutine aparte.</td></tr>
+                        <tr><td>Goroutine leak</td><td>La memoria crece; goroutines bloqueadas para siempre</td><td>Cancelación con <code>context</code>/<code>done</code> y <code>select</code>.</td></tr>
+                        <tr><td>Enviar a un canal cerrado</td><td><code>panic: send on closed channel</code></td><td>Solo el emisor cierra, y una sola vez.</td></tr>
+                        <tr><td>Olvidar <code>wg.Wait()</code></td><td>El programa termina antes de que las goroutines impriman</td><td><code>Add</code> antes de <code>go</code>, <code>defer Done()</code> adentro.</td></tr>
+                        <tr><td>Carrera de datos</td><td>Resultados distintos en cada ejecución</td><td><code>Mutex</code>, <code>atomic</code> o canales; verificar con <code>-race</code>.</td></tr>
+                        <tr><td>Variable de ciclo capturada (Go &lt; 1.22)</td><td>Todas las goroutines ven el último valor</td><td>Go ≥ 1.22 crea una variable por iteración; en versiones viejas, pasarla como argumento.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ==================== 11 ==================== -->
+        <section id="en-zelda" class="section slide">
+            <h2>11. ¿Dónde encaja la concurrencia en ZeldaInterpreter?</h2>
+            <div class="grid-2">
+                <div class="card card-success">
+                    <h3 style="color: var(--success);">Buenas oportunidades</h3>
+                    <ul class="feature-list">
+                        <li>Lexer como goroutine que emite tokens por un canal.</li>
+                        <li>Ejecutar un archivo de pruebas <code>.mk</code> por worker en paralelo.</li>
+                        <li>REPL con timeout para cortar recursiones infinitas.</li>
+                        <li>Un built-in futuro <code>spawn(fn)</code> para lanzar goroutines desde Monkey.</li>
+                    </ul>
+                </div>
+                <div class="card card-warning">
+                    <h3 style="color: var(--warning);">Cuidado</h3>
+                    <ul class="feature-list">
+                        <li>El <code>Environment</code> usa un <code>map</code>: los maps de Go <strong>no</strong> son seguros con escritores concurrentes.</li>
+                        <li>Si dos goroutines comparten un entorno, se necesita un <code>sync.RWMutex</code> en <code>Get</code>/<code>Set</code>.</li>
+                        <li>El evaluador del libro es secuencial a propósito: más simple de entender y de probar.</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== SIMULADOR ==================== -->
+        <section id="simulador-zelda" class="section slide">
+            <h2>Simulador ZeldaInterpreter</h2>
+            <p>En la pestaña <strong>Tokens</strong> ves exactamente la secuencia que un lexer concurrente enviaría, en orden, por el canal hacia el parser.</p>
+            <div data-simulator data-stage="tokens" data-code="let total = precio * 3;"></div>
+        </section>
+
+        <!-- ==================== RESUMEN ==================== -->
+        <section id="resumen" class="section slide">
+            <h2>12. Ideas clave</h2>
+            <div class="key-ideas">
+                <div class="key-idea"><h3>Goroutines baratas</h3><p><code>go f()</code> y esperar con <code>WaitGroup</code>.</p></div>
+                <div class="key-idea"><h3>Carreras</h3><p><code>x++</code> no es atómico: <code>Mutex</code>, <code>atomic</code> y <code>-race</code>.</p></div>
+                <div class="key-idea"><h3>Canales</h3><p>Sin buffer = encuentro; con buffer = cola acotada. Solo el emisor cierra.</p></div>
+                <div class="key-idea"><h3>select</h3><p>Esperar varios eventos: datos, errores, timeouts y cancelación.</p></div>
+                <div class="key-idea"><h3>context</h3><p>Propagar cancelación y plazos a través de goroutines.</p></div>
+                <div class="key-idea"><h3>Patrones</h3><p>Pipeline, fan-out/fan-in y worker pool resuelven la mayoría de casos.</p></div>
+            </div>
+        </section>
+
+        <!-- ==================== TALLER ==================== -->
+        <section id="taller" class="section slide">
+            <h2>13. Taller — Go IV</h2>
+            <div class="card glass">
+                <h3><span data-icon="wrench"></span>Evaluador por lotes con timeout</h3>
+                <ol class="steps">
+                    <li>Ejecuta los tres ejemplos, luego <code>go run -race ./concurrencia/...</code>, y explica las salidas.</li>
+                    <li>Escribe el programa con carrera de la diapositiva 3, verifica la carrera con <code>-race</code> y corrígela de dos formas (<code>Mutex</code> y <code>atomic.Int64</code>).</li>
+                    <li>Modifica el lexer concurrente para que acepte un <code>context.Context</code> y no deje goroutines bloqueadas si el consumidor se detiene.</li>
+                    <li>Construye un worker pool que procese N “programas” con M workers y reporte resultados y errores.</li>
+                </ol>
+            </div>
+            <div class="exercise-cta">
+                <div>
+                    <h3>Guía de ejercicios · Go IV</h3>
+                    <p>Predicción de salidas, bloqueos de canales, carreras y patrones concurrentes.</p>
+                </div>
+                <a class="btn-download" data-pdf-link href="#"><span data-icon="file-down"></span>Descargar PDF</a>
+            </div>
+        </section>
+
+        <nav class="class-footer-nav" data-course-footer aria-label="Navegación entre clases"></nav>
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/go.min.js"></script>
+    <script src="../assets/course.js"></script>
+    <script src="../assets/presentation.js"></script>
+    <script src="../assets/monkey.js"></script>
+    <script src="../assets/simulator.js"></script>
+    <script>
+        /* ---------- Simulador de condición de carrera ---------- */
+        (function () {
+            const STEPS = ['Lock()', 'reg := counter', 'reg = reg + 1', 'counter = reg', 'Unlock()'];
+            const grid = document.getElementById('race-grid');
+            const logEl = document.getElementById('race-log');
+            const stats = document.getElementById('race-stats');
+            const mutexBox = document.getElementById('race-mutex');
+            let st;
+
+            function steps() { return mutexBox.checked ? STEPS : STEPS.slice(1, 4); }
+            function reset() {
+                st = { counter: 0, lock: null, log: [], g: { g1: { pc: 0, reg: null }, g2: { pc: 0, reg: null } } };
+                stats.textContent = '';
+                stats.classList.remove('error');
+            }
+            function done(id) { return st.g[id].pc >= steps().length; }
+
+            function step(id) {
+                const g = st.g[id];
+                if (done(id)) { st.log.push([id, 'ya terminó']); return; }
+                const instr = steps()[g.pc];
+                if (instr === 'Lock()') {
+                    if (st.lock && st.lock !== id) { st.log.push([id, 'Lock() → BLOQUEADA (el mutex lo tiene ' + st.lock.toUpperCase() + ')']); return; }
+                    st.lock = id;
+                } else if (instr === 'Unlock()') {
+                    st.lock = null;
+                } else if (instr === 'reg := counter') {
+                    g.reg = st.counter;
+                } else if (instr === 'reg = reg + 1') {
+                    g.reg += 1;
+                } else if (instr === 'counter = reg') {
+                    st.counter = g.reg;
+                }
+                st.log.push([id, instr + (instr.includes('reg') ? `   (reg=${g.reg}, counter=${st.counter})` : '')]);
+                g.pc++;
+                if (done('g1') && done('g2')) {
+                    const ok = st.counter === 2;
+                    stats.textContent = ok ? 'Resultado final: counter = 2 ✓ correcto' : `Resultado final: counter = ${st.counter} ✗ ¡se perdió una actualización! (lost update)`;
+                    stats.classList.toggle('error', !ok);
+                }
+            }
+
+            function render() {
+                const s = steps();
+                const col = (id) => {
+                    const g = st.g[id];
+                    const lines = s.map((ins, i) => `<div class="race-line${i === g.pc ? ' is-next' : ''}${i < g.pc ? ' is-done' : ''}">${i === g.pc ? '▶' : '&nbsp;'} ${ins}</div>`).join('');
+                    return `<div class="race-col"><div class="viz-label">${id.toUpperCase()} · reg = ${g.reg === null ? '—' : g.reg}</div>${lines}</div>`;
+                };
+                grid.innerHTML = col('g1') + `<div class="race-shared"><div class="viz-label">Memoria compartida</div><div class="race-counter">counter = ${st.counter}</div><div class="race-lock">${mutexBox.checked ? 'mutex: ' + (st.lock ? 'tomado por ' + st.lock.toUpperCase() : 'libre') : 'sin mutex'}</div></div>` + col('g2');
+                logEl.innerHTML = st.log.map(([id, t], i) => `<tr class="${i === st.log.length - 1 ? 'is-current' : ''}"><td class="trace-depth">${id.toUpperCase()}</td><td>${t}</td></tr>`).join('');
+            }
+
+            function many() {
+                let wrong = 0;
+                for (let k = 0; k < 1000; k++) {
+                    reset();
+                    let guard = 0;
+                    while (!(done('g1') && done('g2')) && guard++ < 50) {
+                        const pick = done('g1') ? 'g2' : done('g2') ? 'g1' : (Math.random() < 0.5 ? 'g1' : 'g2');
+                        step(pick);
+                    }
+                    if (st.counter !== 2) wrong++;
+                }
+                stats.textContent = `1000 ejecuciones aleatorias ${mutexBox.checked ? 'CON' : 'SIN'} mutex: ${1000 - wrong} veces counter = 2, ${wrong} veces counter = 1.`;
+                stats.classList.toggle('error', wrong > 0);
+            }
+
+            document.querySelectorAll('[data-race]').forEach((b) => b.addEventListener('click', () => {
+                const a = b.dataset.race;
+                if (a === 'reset') reset();
+                else if (a === 'many') { many(); }
+                else if (a === 'random') {
+                    const opts = ['g1', 'g2'].filter((x) => !done(x));
+                    if (opts.length) step(opts[Math.floor(Math.random() * opts.length)]);
+                } else step(a);
+                render();
+            }));
+            mutexBox.addEventListener('change', () => { reset(); render(); });
+            reset();
+            render();
+        })();
+
+        /* ---------- Simulador de canal lexer → parser ---------- */
+        (function () {
+            const TOKS = ['LET let', 'IDENT x', 'ASSIGN =', 'INT 5', 'SEMICOLON ;', 'EOF'];
+            const stage = document.getElementById('chan-stage');
+            const logEl = document.getElementById('chan-log');
+            const capSel = document.getElementById('chan-cap');
+            let st;
+
+            function reset() {
+                st = { cap: Number(capSel.value), idx: 0, buf: [], pending: null, recvWaiting: false, closed: false, got: [] };
+                return 'Canal creado con make(chan Token, ' + st.cap + '). El lexer aún no ha enviado nada.';
+            }
+            function maybeClose() {
+                if (st.idx >= TOKS.length && !st.pending && !st.closed) { st.closed = true; return ' El lexer terminó: defer close(out).'; }
+                return '';
+            }
+            function send() {
+                if (st.closed) return 'El canal ya está cerrado: enviar ahora causaría panic: send on closed channel.';
+                if (st.pending) return 'El lexer sigue BLOQUEADO intentando enviar ' + st.pending + '. Necesita que el parser reciba.';
+                if (st.idx >= TOKS.length) return 'No hay más tokens.';
+                const t = TOKS[st.idx++];
+                if (st.recvWaiting) { st.recvWaiting = false; st.got.push(t); return 'Entrega directa: el parser estaba esperando y recibió ' + t + '.' + maybeClose(); }
+                if (st.buf.length < st.cap) { st.buf.push(t); return 'ch <- ' + t + ': quedó en el buffer (' + st.buf.length + '/' + st.cap + ').' + maybeClose(); }
+                st.pending = t;
+                return st.cap === 0
+                    ? 'Canal sin buffer: el lexer queda BLOQUEADO con ' + t + ' hasta que el parser reciba (encuentro / rendezvous).'
+                    : 'Buffer lleno: el lexer queda BLOQUEADO con ' + t + ' hasta que se libere un espacio.';
+            }
+            function recv() {
+                if (st.recvWaiting) return 'El parser ya está BLOQUEADO esperando un token.';
+                if (st.buf.length) {
+                    const t = st.buf.shift();
+                    st.got.push(t);
+                    let msg = '<-ch devolvió ' + t + ' desde el buffer.';
+                    if (st.pending) { st.buf.push(st.pending); msg += ' Se liberó espacio: el lexer se desbloquea y deposita ' + st.pending + '.'; st.pending = null; }
+                    return msg + maybeClose();
+                }
+                if (st.pending) { const t = st.pending; st.pending = null; st.got.push(t); return 'Encuentro: el parser recibe ' + t + ' directamente del lexer, que se desbloquea.' + maybeClose(); }
+                if (st.closed) return 'Canal cerrado y vacío: <-ch devuelve el valor cero con ok == false y el for range termina.';
+                st.recvWaiting = true;
+                return 'Canal vacío: el parser queda BLOQUEADO hasta que el lexer envíe.';
+            }
+            function render(msg) {
+                const slots = st.cap === 0
+                    ? '<div class="chan-slot empty">sin buffer: el envío y la recepción ocurren a la vez</div>'
+                    : Array.from({ length: st.cap }, (_, i) => `<div class="chan-slot${st.buf[i] ? '' : ' empty'}">${st.buf[i] || 'vacío'}</div>`).join('');
+                const lexState = st.pending ? `<span class="blocked">BLOQUEADO enviando ${st.pending}</span>` : st.closed ? 'terminó (canal cerrado)' : st.idx >= TOKS.length ? 'listo' : 'próximo: ' + TOKS[st.idx];
+                const parState = st.recvWaiting ? '<span class="blocked">BLOQUEADO esperando</span>' : st.closed && !st.buf.length ? 'range terminó' : 'activo';
+                stage.innerHTML = `
+                    <div class="chan-actor"><div class="viz-label">goroutine lexer</div><div>${lexState}</div></div>
+                    <div class="chan-pipe"><div class="viz-label">canal (cap ${st.cap})${st.closed ? ' · cerrado' : ''}</div><div class="chan-slots">${slots}</div></div>
+                    <div class="chan-actor"><div class="viz-label">goroutine parser</div><div>${parState}</div><div class="token-stream" style="margin-top:.5rem">${st.got.map((t) => `<span class="token-chip"><span class="tok-type">${t.split(' ')[0]}</span><span class="tok-lit">${t.split(' ')[1] || ''}</span></span>`).join('')}</div></div>`;
+                logEl.textContent = msg;
+                logEl.classList.toggle('error', /BLOQUEADO|panic/.test(msg));
+            }
+            document.querySelectorAll('[data-chan]').forEach((b) => b.addEventListener('click', () => {
+                const a = b.dataset.chan;
+                render(a === 'send' ? send() : a === 'recv' ? recv() : reset());
+            }));
+            capSel.addEventListener('change', () => render(reset()));
+            render(reset());
+        })();
+    </script>
+</body>
+</html>

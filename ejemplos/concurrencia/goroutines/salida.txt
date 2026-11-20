@@ -1,0 +1,4 @@
+programa 0: 5 tokens
+programa 1: 15 tokens
+programa 2: 7 tokens
+total: 27

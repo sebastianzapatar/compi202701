@@ -1,0 +1,6 @@
+x = 1
+x = 2
+x en a: 1 | x en b: 2
+...pero el writer agregado sigue vivo:
+x = 1
+x = 2

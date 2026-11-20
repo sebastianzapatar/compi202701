@@ -1,0 +1,6 @@
+== Error ==
+   expected =, got <INT>
+   línea 3, columna 7
+<h3>Error</h3>
+<p>expected =, got &lt;INT&gt;</p>
+<p>línea 3, columna 7</p>

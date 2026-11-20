@@ -1,0 +1,2 @@
+consola: [>> let x = 5;]
+errores: [código vacío]

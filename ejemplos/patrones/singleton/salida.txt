@@ -1,0 +1,3 @@
+mismo TRUE: true
+(inicializando registro: esto se imprime una sola vez)
+misma instancia: true [len first last rest push puts]

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Módulo Go IV · Concurrencia | Guía de ejercicios</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="worksheet.css">
+</head>
+<body class="student">
+
+<header class="sheet-header">
+  <div class="brand">
+    <span class="course">ZeldaInterpreter · Lenguajes y Compiladores · 2027-1</span>
+    <span class="book">Libro guía: <em>Writing An Interpreter In Go</em> — Thorsten Ball</span>
+  </div>
+  <div class="title-row">
+    <div>
+      <div class="kicker">Guía de ejercicios · Módulo Go IV · Bloque I ampliado</div>
+      <h1>Concurrencia en Go: Goroutines, Canales y Sincronización</h1>
+      <div class="ref">goroutines, <code>sync</code>, canales, <code>select</code>, <code>context</code> · código en <code>ejemplos/concurrencia/</code></div>
+    </div>
+    <div class="week-badge" aria-hidden="true">G4</div>
+  </div>
+</header>
+
+<div class="student-fields">
+  <div class="field"><label>Nombre</label><span></span></div>
+  <div class="field"><label>Código</label><span></span></div>
+  <div class="field small"><label>Fecha</label><span></span></div>
+  <div class="field small"><label>Nota</label><span></span></div>
+</div>
+
+<div class="intro">
+  <div class="goals">
+    <h2>Al terminar esta guía podrás…</h2>
+    <ul><li>Predecir bloqueos de canales con y sin buffer.</li><li>Detectar y corregir condiciones de carrera.</li><li>Diseñar pipelines y worker pools con cancelación.</li></ul>
+  </div>
+  <div class="instructions">
+    <h2>Instrucciones</h2>
+    <ul>
+      <li>Partes A y B: a mano, <strong>sin computador</strong>. Razona con el código del libro.</li>
+      <li>Parte C: entrega en tu repositorio <code>monkey</code>; <code>go test ./...</code> debe pasar.</li>
+      <li>Puntaje total: <strong>100 pts</strong> (+ reto opcional).</li>
+      <li>Clase de referencia: <code>clases/go-04-concurrencia.html</code></li>
+    </ul>
+  </div>
+</div>
+
+<section class="part pa"><h2><span>Parte A · Conceptos</span><span class="part-pts">25 pts</span></h2><p class="part-desc">Responde con tus palabras. Se valora la justificación, no solo la respuesta.</p><div class="item"><div class="item-head"><span class="qnum">1</span><div class="qtext">¿Cuál es la diferencia entre concurrencia y paralelismo? Da un ejemplo de cada uno con el intérprete. <span class="pts">(5 pts)</span></div></div><div class="item-body"><div class="lines" style="--n:3" aria-hidden="true"></div></div></div><div class="item"><div class="item-head"><span class="qnum">2</span><div class="qtext">¿Por qué <code>total++</code> ejecutado por varias goroutines produce resultados incorrectos? ¿Qué herramienta de Go lo detecta? <span class="pts">(5 pts)</span></div></div><div class="item-body"><div class="lines" style="--n:3" aria-hidden="true"></div></div></div><div class="item"><div class="item-head"><span class="qnum">3</span><div class="qtext">¿Quién debe cerrar un canal y qué pasa si se envía a un canal cerrado? <span class="pts">(4 pts)</span></div></div><div class="item-body"><div class="lines" style="--n:2" aria-hidden="true"></div></div></div><div class="item"><div class="item-head"><span class="qnum">4</span><div class="qtext">¿Qué es una <em>goroutine leak</em>? Da un ejemplo con el lexer concurrente y cómo evitarla. <span class="pts">(6 pts)</span></div></div><div class="item-body"><div class="lines" style="--n:3" aria-hidden="true"></div></div></div><div class="item"><div class="item-head"><span class="qnum">5</span><div class="qtext">¿Para qué sirve <code>context.Context</code>? Menciona dos funciones que lo crean. <span class="pts">(5 pts)</span></div></div><div class="item-body"><div class="lines" style="--n:3" aria-hidden="true"></div></div></div></section><section class="part pb"><h2><span>Parte B · Trazas a mano</span><span class="part-pts">35 pts</span></h2><p class="part-desc">Resuelve en papel, sin ejecutar código. Muestra el razonamiento.</p><div class="item"><div class="item-head"><span class="qnum">6</span><div class="qtext">Para cada fragmento, indica si termina normalmente o produce <strong>deadlock</strong>, y por qué: <span class="pts">(12 pts)</span></div></div><div class="item-body"><table class="fill-table"><thead><tr><th>Fragmento</th><th>¿Qué pasa?</th></tr></thead><tbody><tr><td><code>ch := make(chan int); ch &lt;- 1; fmt.Println(&lt;-ch)</code></td><td class="fill"></td></tr><tr><td><code>ch := make(chan int, 1); ch &lt;- 1; fmt.Println(&lt;-ch)</code></td><td class="fill"></td></tr><tr><td><code>ch := make(chan int, 1); ch &lt;- 1; ch &lt;- 2</code></td><td class="fill"></td></tr><tr><td><code>ch := make(chan int); go func() { ch &lt;- 1 }(); fmt.Println(&lt;-ch)</code></td><td class="fill"></td></tr></tbody></table></div></div><div class="item"><div class="item-head"><span class="qnum">7</span><div class="qtext">Dos goroutines ejecutan <code>counter++</code> (leer → sumar → escribir) con <code>counter = 0</code> y sin mutex. Escribe un intercalado de los 6 pasos que deje <code>counter = 1</code>. <span class="pts">(8 pts)</span></div></div><div class="item-body"><div class="lines" style="--n:4" aria-hidden="true"></div></div></div><div class="item"><div class="item-head"><span class="qnum">8</span><div class="qtext">Con un canal de capacidad 2 entre lexer y parser, el lexer envía 4 tokens seguidos antes de que el parser reciba. ¿En qué envío se bloquea? Si luego el parser recibe uno, ¿qué ocurre? <span class="pts">(7 pts)</span></div></div><div class="item-body"><div class="lines" style="--n:3" aria-hidden="true"></div></div></div><div class="item"><div class="item-head"><span class="qnum">9</span><div class="qtext">En <code>ejemplos/concurrencia/pipeline</code> el programa 3 falla con <code>context deadline exceeded</code> y el programa 2 con <code>token inválido "x"</code>. Explica por qué cada uno. <span class="pts">(8 pts)</span></div></div><div class="item-body"><div class="lines" style="--n:4" aria-hidden="true"></div></div></div></section><section class="part pc"><h2><span>Parte C · Programación en Go</span><span class="part-pts">40 pts</span></h2><p class="part-desc">Implementa en tu repositorio. Cada función debe tener su prueba <em>table-driven</em>.</p><div class="problem"><div class="problem-head"><span class="qnum">10</span><h3>Corregir una carrera de dos formas</h3><span class="pts">13 pts</span></div><div class="problem-body"><p>Escribe un programa con 1000 goroutines que incrementan un contador compartido. Demuestra la carrera con <code>go run -race</code> y corrígela con <code>sync.Mutex</code> y con <code>atomic.Int64</code>. Escribe una prueba que verifique que el resultado es 1000.</p></div></div><div class="problem"><div class="problem-head"><span class="qnum">11</span><h3>Lexer concurrente cancelable</h3><span class="pts">14 pts</span></div><div class="problem-body"><p>Modifica <code>lex(input)</code> para que reciba <code>ctx context.Context</code> y use <code>select</code> al enviar cada token. Escribe una prueba que cancele el contexto después del segundo token y verifique (con <code>runtime.NumGoroutine</code> o un canal <code>done</code>) que la goroutine del lexer termina.</p></div></div><div class="problem"><div class="problem-head"><span class="qnum">12</span><h3>Evaluación por lotes</h3><span class="pts">13 pts</span></div><div class="problem-body"><p>Construye un worker pool con M workers que evalúe N programas Monkey (puedes usar tu intérprete real o el evaluador de sumas del ejemplo) y devuelva los resultados <strong>en el orden original</strong> aunque terminen desordenados.</p></div></div></section><section class="reto"><h2><span>Reto opcional · Timeout real en el evaluador</span><span class="part-pts">+10 pts</span></h2><p>Haz que <code>Eval</code> reciba un <code>context.Context</code> y lo revise en cada llamada a función. Así <code>let f = fn() { f() }; f();</code> se detiene con <code>ERROR: evaluación cancelada</code> en el REPL tras 2 segundos.</p></section>
+
+<section class="rubric">
+  <h2><span>Rúbrica de evaluación</span></h2>
+  <table>
+    <thead><tr><th>Criterio</th><th>Descripción</th><th class="num">Pts</th></tr></thead>
+    <tbody><tr><td>Parte A</td><td>Respuestas correctas, con justificación en palabras propias (no copia literal del libro).</td><td class='num'>25</td></tr><tr><td>Parte B</td><td>Trazas completas y correctas; se muestra el razonamiento paso a paso.</td><td class='num'>35</td></tr><tr><td>Parte C · Funcionalidad</td><td>El código compila y hace lo pedido, incluidos los casos borde.</td><td class='num'>20</td></tr><tr><td>Parte C · Pruebas</td><td>Pruebas <em>table-driven</em> que cubren casos normales y de error; <code>go test ./...</code> en verde.</td><td class='num'>15</td></tr><tr><td>Parte C · Calidad</td><td>Código formateado con <code>gofmt</code>, nombres claros, sin código muerto.</td><td class='num'>5</td></tr><tr><td>Reto (opcional)</td><td>Funciona, tiene pruebas y se explica su diseño en el README.</td><td class='num'>+10</td></tr></tbody>
+  </table>
+</section>
+
+<footer class="sheet-footer">ZeldaInterpreter · Lenguajes y Compiladores 2027-1 · Módulo Go IV · Concurrencia</footer>
+</body>
+</html>

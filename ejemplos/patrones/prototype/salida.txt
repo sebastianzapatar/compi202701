@@ -1,0 +1,2 @@
+original: 2 elementos primero = 1
+nuevo:    3 elementos primero = 99

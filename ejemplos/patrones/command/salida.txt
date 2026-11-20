@@ -1,0 +1,2 @@
+antes:  map[x:2 y:9]
+después: map[x:1]

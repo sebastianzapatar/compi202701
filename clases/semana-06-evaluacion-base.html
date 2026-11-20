@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Semana 6: Evaluación I (Cap. 3.1–3.8) | ZeldaInterpreter · Lenguajes y Compiladores 2027-1</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css">
+    <link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body data-week="6">
+    <a class="skip-link" href="#contenido">Saltar al contenido</a>
+
+    <aside class="sidebar">
+        <div class="logo">
+            <a href="../index.html">
+                <h1 class="brand"><span class="brand-logo" data-logo="56"></span><span class="brand-name">ZeldaInterpreter</span></h1><p class="logo-subtitle">Semana 06 · Capítulo 3A</p>
+            </a>
+        </div>
+
+        <a href="../index.html" class="back-link"><span data-icon="home"></span>Portal del Curso</a>
+
+        <button type="button" class="present-btn" id="toggle-slides-btn" aria-pressed="false">
+            <span data-icon="presentation"></span>Modo Presentación <kbd>P</kbd>
+        </button>
+        <a class="pdf-btn" data-pdf-link href="#"><span data-icon="file-down"></span>Ejercicios de la semana (PDF)</a>
+
+        <nav>
+            <div class="nav-group-title">Contenido de la Clase</div>
+            <ul>
+                <li><a href="#portada" class="active">Portada y objetivos</a></li>
+                <li><a href="#significado">1. Dar significado a los símbolos</a></li>
+                <li><a href="#estrategias">2. Estrategias de evaluación</a></li>
+                <li><a href="#objetos">3. Sistema de objetos</a></li>
+                <li><a href="#eval-base">4. Eval: enteros y pruebas</a></li>
+                <li><a href="#singletons">5. Booleanos y Null</a></li>
+                <li><a href="#prefijos">6. Operadores prefijos</a></li>
+                <li><a href="#infijos">7. Operadores infijos</a></li>
+                <li><a href="#condicionales">8. Condicionales y truthiness</a></li>
+                <li><a href="#return">9. Sentencias return</a></li>
+                <li><a href="#errores">10. Manejo de errores</a></li>
+                <li><a href="#repl">11. REPL en vivo</a></li>
+                <li><a href="#correr">Córrelo en ZeldaInterpreter</a></li>
+                <li><a href="#simulador-zelda">Simulador ZeldaInterpreter</a></li>
+                <li><a href="#resumen">12. Ideas clave</a></li>
+                <li><a href="#taller">13. Taller de la Semana 6</a></li>
+            </ul>
+            <div data-course-nav></div>
+        </nav>
+
+        <div class="sidebar-footer">
+            Semana 6 de 8 · Cap. 3.1–3.8 (pp. 103–135)
+        </div>
+    </aside>
+
+    <main class="content" id="contenido">
+
+        <!-- ==================== PORTADA ==================== -->
+        <header id="portada" class="hero slide">
+            <div class="hero-badge"><span data-icon="zap"></span>Semana 06 · Bloque II · Capítulo 3 (Parte A)</div>
+            <h1>Evaluación I: <span class="gradient-text">Objetos, Expresiones y Control</span></h1>
+            <p>Hasta ahora <code>1 + 2</code> solo era un árbol. Hoy le damos <strong>significado</strong>: construimos un evaluador <em>tree-walking</em> que recorre el AST y produce valores reales.</p>
+            <div class="hero-meta">
+                <span class="meta-pill"><span data-icon="book"></span>Libro: Cap. 3.1 – 3.8 (pp. 103–135)</span>
+                <span class="meta-pill"><span data-icon="folder"></span>Paquetes: <code>object</code>, <code>evaluator</code></span>
+                <span class="meta-pill"><span data-icon="terminal"></span>REPL de Monkey en el navegador</span>
+            </div>
+            <div class="objectives" aria-label="Objetivos de la clase">
+                <div class="objective"><span class="num">1</span><span>Comparar tree-walking, bytecode VM y JIT.</span></div>
+                <div class="objective"><span class="num">2</span><span>Representar valores de Monkey con la interfaz <code>object.Object</code>.</span></div>
+                <div class="objective"><span class="num">3</span><span>Evaluar prefijos, infijos, condicionales y <code>return</code> anidados.</span></div>
+                <div class="objective"><span class="num">4</span><span>Propagar errores de ejecución sin romper el intérprete.</span></div>
+            </div>
+        </header>
+
+        <!-- ==================== 1. SIGNIFICADO ==================== -->
+        <section id="significado" class="section slide">
+            <h2>1. Dar significado a los símbolos</h2>
+            <p>Evaluar es el paso en el que el código <strong>hace algo</strong>. La misma expresión <code>1 + 2</code> no significa nada hasta que un evaluador decide que el resultado es <code>3</code>. Aquí también se define la <strong>semántica</strong> del lenguaje: ¿es <code>5</code> verdadero en un <code>if</code>? ¿se puede sumar un entero con un booleano?</p>
+
+            <div class="pipeline">
+                <div class="pipeline-step">Código Fuente<small>"1 + 2"</small></div>
+                <span class="pipeline-arrow">→</span>
+                <div class="pipeline-step">Lexer<small>Sem 3</small></div>
+                <span class="pipeline-arrow">→</span>
+                <div class="pipeline-step">Parser → AST<small>Sem 4–5</small></div>
+                <span class="pipeline-arrow">→</span>
+                <div class="pipeline-step active-step">Evaluador (HOY)<small>Cap. 3 · Sem 6–7</small></div>
+                <span class="pipeline-arrow">→</span>
+                <div class="pipeline-step">Objeto<small>&amp;object.Integer{3}</small></div>
+            </div>
+
+            <div class="code-block">
+                <div class="code-header"><span>Pseudocódigo de un evaluador tree-walking (del libro)</span></div>
+<pre><code class="language-plaintext">function eval(astNode) {
+    if (astNode is integerliteral) {
+        return astNode.integerValue
+    } else if (astNode is booleanLiteral) {
+        return astNode.booleanValue
+    } else if (astNode is infixExpression) {
+        leftEvaluated = eval(astNode.Left)
+        rightEvaluated = eval(astNode.Right)
+
+        if astNode.Operator == "+" {
+            return leftEvaluated + rightEvaluated
+        } else if ast.Operator == "-" {
+            return leftEvaluated - rightEvaluated
+        }
+    }
+}</code></pre>
+            </div>
+        </section>
+
+        <!-- ==================== 2. ESTRATEGIAS ==================== -->
+        <section id="estrategias" class="section slide">
+            <h2>2. Estrategias de evaluación</h2>
+            <div class="grid-3">
+                <div class="card card-primary">
+                    <h3 style="color: var(--primary);">Tree-walking</h3>
+                    <p>Recorre el AST e interpreta cada nodo directamente. Simple y didáctico. <strong>Nuestro enfoque.</strong></p>
+                    <p style="font-size:0.85rem">Ej.: el primer Ruby (MRI ≤ 1.8), muchos lenguajes de juguete y DSLs.</p>
+                </div>
+                <div class="card card-accent">
+                    <h3 style="color: var(--accent);">Bytecode + VM</h3>
+                    <p>Compila el AST a instrucciones compactas que ejecuta una máquina virtual. Mucho más rápido.</p>
+                    <p style="font-size:0.85rem">Ej.: CPython, Lua, YARV (Ruby ≥ 1.9). Tema de <em>Writing A Compiler In Go</em>.</p>
+                </div>
+                <div class="card card-warning">
+                    <h3 style="color: var(--warning);">JIT</h3>
+                    <p>Traduce a código máquina nativo justo antes o durante la ejecución.</p>
+                    <p style="font-size:0.85rem">Ej.: V8 (JavaScript), la JVM, LuaJIT, PyPy.</p>
+                </div>
+            </div>
+            <div class="info-box">
+                <strong>No hay una respuesta “correcta”:</strong> la elección depende de rendimiento, portabilidad y del lenguaje a interpretar. El libro elige tree-walking porque es la forma más directa de entender qué significa evaluar un programa — y es suficientemente rápida para Monkey.
+            </div>
+        </section>
+
+        <!-- ==================== 3. OBJETOS ==================== -->
+        <section id="objetos" class="section slide">
+            <h2>3. El sistema de objetos (<code>object/object.go</code>)</h2>
+            <p>Cada valor que aparece al evaluar se representa con un objeto que implementa una interfaz común. Así <code>Eval</code> siempre devuelve el mismo tipo: <code>object.Object</code>.</p>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>object/object.go</span></div>
+<pre><code class="language-go">package object
+
+import "fmt"
+
+type ObjectType string
+
+const (
+    INTEGER_OBJ = "INTEGER"
+    BOOLEAN_OBJ = "BOOLEAN"
+    NULL_OBJ    = "NULL"
+)
+
+type Object interface {
+    Type() ObjectType
+    Inspect() string
+}</code></pre>
+                </div>
+                <div class="code-block">
+                    <div class="code-header"><span>object/object.go</span></div>
+<pre><code class="language-go">type Integer struct {
+    Value int64
+}
+func (i *Integer) Inspect() string  { return fmt.Sprintf("%d", i.Value) }
+func (i *Integer) Type() ObjectType { return INTEGER_OBJ }
+
+type Boolean struct {
+    Value bool
+}
+func (b *Boolean) Inspect() string  { return fmt.Sprintf("%t", b.Value) }
+func (b *Boolean) Type() ObjectType { return BOOLEAN_OBJ }
+
+type Null struct{}
+func (n *Null) Inspect() string  { return "null" }
+func (n *Null) Type() ObjectType { return NULL_OBJ }</code></pre>
+                </div>
+            </div>
+            <div class="analogy-box">
+                <strong>El “billion-dollar mistake”:</strong> Tony Hoare llamó así a la invención de la referencia nula. Monkey igual tiene <code>null</code> — el libro lo incluye a propósito para que aprendamos a manejarlo con cuidado.
+            </div>
+        </section>
+
+        <!-- ==================== 4. EVAL BASE ==================== -->
+        <section id="eval-base" class="section slide">
+            <h2>4. <code>Eval</code>: la primera versión y sus pruebas</h2>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>evaluator/evaluator.go</span></div>
+<pre><code class="language-go">package evaluator
+
+import (
+    "monkey/ast"
+    "monkey/object"
+)
+
+func Eval(node ast.Node) object.Object {
+    switch node := node.(type) {
+
+    // Sentencias
+    case *ast.Program:
+        return evalStatements(node.Statements)
+
+    case *ast.ExpressionStatement:
+        return Eval(node.Expression)
+
+    // Expresiones
+    case *ast.IntegerLiteral:
+        return &amp;object.Integer{Value: node.Value}
+    }
+
+    return nil
+}
+
+func evalStatements(stmts []ast.Statement) object.Object {
+    var result object.Object
+    for _, statement := range stmts {
+        result = Eval(statement)
+    }
+    return result
+}</code></pre>
+                </div>
+                <div class="code-block">
+                    <div class="code-header"><span>evaluator/evaluator_test.go</span></div>
+<pre><code class="language-go">func TestEvalIntegerExpression(t *testing.T) {
+    tests := []struct {
+        input    string
+        expected int64
+    }{
+        {"5", 5},
+        {"10", 10},
+    }
+    for _, tt := range tests {
+        evaluated := testEval(tt.input)
+        testIntegerObject(t, evaluated, tt.expected)
+    }
+}
+
+func testEval(input string) object.Object {
+    l := lexer.New(input)
+    p := parser.New(l)
+    program := p.ParseProgram()
+    return Eval(program)
+}
+
+func testIntegerObject(t *testing.T, obj object.Object, expected int64) bool {
+    result, ok := obj.(*object.Integer)
+    if !ok {
+        t.Errorf("object is not Integer. got=%T (%+v)", obj, obj)
+        return false
+    }
+    if result.Value != expected {
+        t.Errorf("object has wrong value. got=%d, want=%d",
+            result.Value, expected)
+        return false
+    }
+    return true
+}</code></pre>
+                </div>
+            </div>
+            <div class="tip-box">
+                <strong>El <em>type switch</em> de la Semana 2</strong> es todo el esqueleto del evaluador: <code>switch node := node.(type)</code> elige qué hacer según el tipo concreto de nodo. Cada nueva característica = un nuevo <code>case</code>.
+            </div>
+        </section>
+
+        <!-- ==================== 5. SINGLETONS ==================== -->
+        <section id="singletons" class="section slide">
+            <h2>5. Booleanos y Null: una sola instancia</h2>
+            <p>Solo existen dos booleanos posibles y un único <code>null</code>. No tiene sentido crear un objeto nuevo cada vez: los definimos <strong>una vez</strong> y los reutilizamos.</p>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>evaluator/evaluator.go</span></div>
+<pre><code class="language-go">var (
+    NULL  = &amp;object.Null{}
+    TRUE  = &amp;object.Boolean{Value: true}
+    FALSE = &amp;object.Boolean{Value: false}
+)
+
+// dentro del switch de Eval
+case *ast.Boolean:
+    return nativeBoolToBooleanObject(node.Value)
+
+func nativeBoolToBooleanObject(input bool) *object.Boolean {
+    if input {
+        return TRUE
+    }
+    return FALSE
+}</code></pre>
+                </div>
+                <div class="card glass">
+                    <h3>Beneficio doble</h3>
+                    <ul class="feature-list">
+                        <li><strong>Memoria:</strong> no se crean miles de <code>&amp;object.Boolean{true}</code> iguales.</li>
+                        <li><strong>Velocidad:</strong> comparar dos booleanos se reduce a comparar <strong>punteros</strong> (<code>left == right</code>), sin “desempacar” el valor.</li>
+                    </ul>
+                    <p>Este truco lo usaremos en los infijos <code>==</code> y <code>!=</code>.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 6. PREFIJOS ==================== -->
+        <section id="prefijos" class="section slide">
+            <h2>6. Operadores prefijos: <code>!</code> y <code>-</code></h2>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>evaluator/evaluator.go</span></div>
+<pre><code class="language-go">case *ast.PrefixExpression:
+    right := Eval(node.Right)
+    return evalPrefixExpression(node.Operator, right)
+
+func evalPrefixExpression(operator string, right object.Object) object.Object {
+    switch operator {
+    case "!":
+        return evalBangOperatorExpression(right)
+    case "-":
+        return evalMinusPrefixOperatorExpression(right)
+    default:
+        return NULL
+    }
+}
+
+func evalBangOperatorExpression(right object.Object) object.Object {
+    switch right {
+    case TRUE:
+        return FALSE
+    case FALSE:
+        return TRUE
+    case NULL:
+        return TRUE
+    default:
+        return FALSE
+    }
+}
+
+func evalMinusPrefixOperatorExpression(right object.Object) object.Object {
+    if right.Type() != object.INTEGER_OBJ {
+        return NULL
+    }
+    value := right.(*object.Integer).Value
+    return &amp;object.Integer{Value: -value}
+}</code></pre>
+                </div>
+                <div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead><tr><th>Entrada</th><th>Resultado</th><th>¿Por qué?</th></tr></thead>
+                            <tbody>
+                                <tr><td><code>!true</code></td><td><code>false</code></td><td>negación directa</td></tr>
+                                <tr><td><code>!5</code></td><td><code>false</code></td><td><code>5</code> es <em>truthy</em></td></tr>
+                                <tr><td><code>!!true</code></td><td><code>true</code></td><td>doble negación</td></tr>
+                                <tr><td><code>!!5</code></td><td><code>true</code></td><td>convierte a booleano</td></tr>
+                                <tr><td><code>-5</code></td><td><code>-5</code></td><td>negación aritmética</td></tr>
+                                <tr><td><code>--5</code></td><td><code>5</code></td><td>prefijo anidado</td></tr>
+                                <tr><td><code>-true</code></td><td><code>null</code> → luego error</td><td>no es entero</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="info-box">
+                        <strong>Decisión semántica:</strong> que <code>!5</code> sea <code>false</code> no es obvio — es una elección de diseño del lenguaje. Otros lenguajes podrían dar un error.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 7. INFIJOS ==================== -->
+        <section id="infijos" class="section slide">
+            <h2>7. Operadores infijos: enteros y booleanos</h2>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>evaluator/evaluator.go</span></div>
+<pre><code class="language-go">case *ast.InfixExpression:
+    left := Eval(node.Left)
+    right := Eval(node.Right)
+    return evalInfixExpression(node.Operator, left, right)
+
+func evalInfixExpression(operator string, left, right object.Object) object.Object {
+    switch {
+    case left.Type() == object.INTEGER_OBJ &amp;&amp; right.Type() == object.INTEGER_OBJ:
+        return evalIntegerInfixExpression(operator, left, right)
+    case operator == "==":
+        return nativeBoolToBooleanObject(left == right)
+    case operator == "!=":
+        return nativeBoolToBooleanObject(left != right)
+    default:
+        return NULL
+    }
+}</code></pre>
+                </div>
+                <div class="code-block">
+                    <div class="code-header"><span>evaluator/evaluator.go</span></div>
+<pre><code class="language-go">func evalIntegerInfixExpression(operator string, left, right object.Object) object.Object {
+    leftVal := left.(*object.Integer).Value
+    rightVal := right.(*object.Integer).Value
+
+    switch operator {
+    case "+":
+        return &amp;object.Integer{Value: leftVal + rightVal}
+    case "-":
+        return &amp;object.Integer{Value: leftVal - rightVal}
+    case "*":
+        return &amp;object.Integer{Value: leftVal * rightVal}
+    case "/":
+        return &amp;object.Integer{Value: leftVal / rightVal}
+    case "&lt;":
+        return nativeBoolToBooleanObject(leftVal &lt; rightVal)
+    case "&gt;":
+        return nativeBoolToBooleanObject(leftVal &gt; rightVal)
+    case "==":
+        return nativeBoolToBooleanObject(leftVal == rightVal)
+    case "!=":
+        return nativeBoolToBooleanObject(leftVal != rightVal)
+    default:
+        return NULL
+    }
+}</code></pre>
+                </div>
+            </div>
+            <div class="warn-box">
+                <strong>¡El orden de los <code>case</code> importa!</strong> <code>left == right</code> compara <strong>punteros</strong>. Funciona para booleanos (son singletons), pero no para enteros: dos <code>&amp;object.Integer{5}</code> distintos tienen direcciones distintas. Por eso los enteros se revisan primero y se comparan por valor.
+            </div>
+        </section>
+
+        <!-- ==================== 8. CONDICIONALES ==================== -->
+        <section id="condicionales" class="section slide">
+            <h2>8. Condicionales y <em>truthiness</em></h2>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>evaluator/evaluator.go</span></div>
+<pre><code class="language-go">case *ast.BlockStatement:
+    return evalStatements(node.Statements)
+
+case *ast.IfExpression:
+    return evalIfExpression(node)
+
+func evalIfExpression(ie *ast.IfExpression) object.Object {
+    condition := Eval(ie.Condition)
+
+    if isTruthy(condition) {
+        return Eval(ie.Consequence)
+    } else if ie.Alternative != nil {
+        return Eval(ie.Alternative)
+    } else {
+        return NULL
+    }
+}
+
+func isTruthy(obj object.Object) bool {
+    switch obj {
+    case NULL:
+        return false
+    case TRUE:
+        return true
+    case FALSE:
+        return false
+    default:
+        return true
+    }
+}</code></pre>
+                </div>
+                <div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead><tr><th>Programa</th><th>Resultado</th></tr></thead>
+                            <tbody>
+                                <tr><td><code>if (true) { 10 }</code></td><td><code>10</code></td></tr>
+                                <tr><td><code>if (false) { 10 }</code></td><td><code>null</code></td></tr>
+                                <tr><td><code>if (1) { 10 }</code></td><td><code>10</code></td></tr>
+                                <tr><td><code>if (1 &lt; 2) { 10 }</code></td><td><code>10</code></td></tr>
+                                <tr><td><code>if (1 &gt; 2) { 10 } else { 20 }</code></td><td><code>20</code></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="card glass">
+                        <h3>Truthy en Monkey</h3>
+                        <p>Todo lo que no sea <code>null</code> ni <code>false</code> es verdadero — incluso <code>0</code>. Como el <code>if</code> es una <strong>expresión</strong>, un <code>if</code> sin <code>else</code> cuya condición es falsa produce <code>null</code>.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 9. RETURN ==================== -->
+        <section id="return" class="section slide">
+            <h2>9. Sentencias <code>return</code>: envolver y desenvolver</h2>
+            <p>Un <code>return</code> debe <strong>detener</strong> la evaluación del resto de sentencias. Lo logramos envolviendo el valor en un objeto especial que “burbujea” hacia arriba.</p>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>object/object.go + evaluator.go</span></div>
+<pre><code class="language-go">const RETURN_VALUE_OBJ = "RETURN_VALUE"
+
+type ReturnValue struct {
+    Value Object
+}
+func (rv *ReturnValue) Type() ObjectType { return RETURN_VALUE_OBJ }
+func (rv *ReturnValue) Inspect() string  { return rv.Value.Inspect() }
+
+// evaluator.go
+case *ast.ReturnStatement:
+    val := Eval(node.ReturnValue)
+    return &amp;object.ReturnValue{Value: val}
+
+func evalProgram(program *ast.Program) object.Object {
+    var result object.Object
+    for _, statement := range program.Statements {
+        result = Eval(statement)
+        if returnValue, ok := result.(*object.ReturnValue); ok {
+            return returnValue.Value // ¡desenvuelve!
+        }
+    }
+    return result
+}
+
+func evalBlockStatement(block *ast.BlockStatement) object.Object {
+    var result object.Object
+    for _, statement := range block.Statements {
+        result = Eval(statement)
+        if result != nil &amp;&amp; result.Type() == object.RETURN_VALUE_OBJ {
+            return result // NO desenvuelve: sigue burbujeando
+        }
+    }
+    return result
+}</code></pre>
+                </div>
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>El caso que obliga a separar las funciones</span></div>
+<pre><code class="language-javascript">if (10 &gt; 1) {
+  if (10 &gt; 1) {
+    return 10;
+  }
+  return 1;
+}
+// debe producir 10, no 1</code></pre>
+                    </div>
+                    <div class="warn-box">
+                        <strong>¿Por qué dos funciones?</strong> Si el bloque interno desenvolviera el <code>ReturnValue</code>, el bloque externo recibiría un simple <code>10</code>, no sabría que hubo un <code>return</code> y seguiría hasta <code>return 1;</code>. Solo el nivel más alto (<code>evalProgram</code>) desenvuelve.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 10. ERRORES ==================== -->
+        <section id="errores" class="section slide">
+            <h2>10. Abort! Abort! Manejo de errores</h2>
+            <p>Devolver <code>NULL</code> ante <code>5 + true</code> esconde el problema. Creamos un objeto de error que, igual que <code>ReturnValue</code>, detiene la evaluación y burbujea.</p>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>object/object.go + evaluator.go</span></div>
+<pre><code class="language-go">const ERROR_OBJ = "ERROR"
+
+type Error struct {
+    Message string
+}
+func (e *Error) Type() ObjectType { return ERROR_OBJ }
+func (e *Error) Inspect() string  { return "ERROR: " + e.Message }
+
+// evaluator.go
+func newError(format string, a ...interface{}) *object.Error {
+    return &amp;object.Error{Message: fmt.Sprintf(format, a...)}
+}
+
+func isError(obj object.Object) bool {
+    if obj != nil {
+        return obj.Type() == object.ERROR_OBJ
+    }
+    return false
+}
+
+// Ejemplo: revisar después de cada Eval
+case *ast.InfixExpression:
+    left := Eval(node.Left)
+    if isError(left) {
+        return left
+    }
+    right := Eval(node.Right)
+    if isError(right) {
+        return right
+    }
+    return evalInfixExpression(node.Operator, left, right)</code></pre>
+                </div>
+                <div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead><tr><th>Entrada</th><th>Mensaje</th></tr></thead>
+                            <tbody>
+                                <tr><td><code>5 + true;</code></td><td><code>type mismatch: INTEGER + BOOLEAN</code></td></tr>
+                                <tr><td><code>5 + true; 5;</code></td><td><code>type mismatch: INTEGER + BOOLEAN</code></td></tr>
+                                <tr><td><code>-true</code></td><td><code>unknown operator: -BOOLEAN</code></td></tr>
+                                <tr><td><code>true + false;</code></td><td><code>unknown operator: BOOLEAN + BOOLEAN</code></td></tr>
+                                <tr><td><code>if (10 &gt; 1) { true + false; }</code></td><td><code>unknown operator: BOOLEAN + BOOLEAN</code></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header"><span>evaluator.go — nuevos chequeos</span></div>
+<pre><code class="language-go">case left.Type() != right.Type():
+    return newError("type mismatch: %s %s %s",
+        left.Type(), operator, right.Type())
+default:
+    return newError("unknown operator: %s %s %s",
+        left.Type(), operator, right.Type())</code></pre>
+                    </div>
+                    <div class="info-box">
+                        <strong>evalProgram y evalBlockStatement</strong> ahora también se detienen al ver un <code>*object.Error</code>.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 11. REPL ==================== -->
+        <section id="repl" class="section slide">
+            <h2>11. REPL en vivo: ¡Monkey ya calcula!</h2>
+            <p>Este REPL usa el evaluador del libro portado a JavaScript. Prueba la semántica que acabamos de definir: truthiness, retornos anidados y errores.</p>
+            <div class="playground">
+                <label for="repl-input" class="viz-label">Programa Monkey</label>
+                <textarea id="repl-input" class="playground-input" spellcheck="false">if (10 &gt; 1) {
+  if (10 &gt; 1) {
+    return 10;
+  }
+  return 1;
+}</textarea>
+                <div class="playground-actions">
+                    <button type="button" class="btn-pill primary" id="repl-run"><span data-icon="play"></span>Evaluar</button>
+                    <button type="button" class="btn-pill" data-repl="(5 + 10 * 2 + 15 / 3) * 2 + -10">Aritmética</button>
+                    <button type="button" class="btn-pill" data-repl="!!5">!!5</button>
+                    <button type="button" class="btn-pill" data-repl="if (1 &gt; 2) { 10 }">if sin else</button>
+                    <button type="button" class="btn-pill" data-repl="5 + true; 5;">Error de tipos</button>
+                    <button type="button" class="btn-pill" data-repl="9; return 2 * 5; 9;">return</button>
+                </div>
+                <div class="viz-label">Resultado (Inspect)</div>
+                <div class="viz-output" id="repl-output" aria-live="polite"></div>
+            </div>
+            <div class="info-box">
+                <strong>Diferencia con el Go del libro:</strong> en la versión Go, <code>10 / 0</code> causa un <em>panic</em>. Aquí lo mostramos como error para que no se rompa la página — es un buen reto para la guía de ejercicios.
+            </div>
+        </section>
+
+        <!-- CORRER:INICIO -->
+        <!-- Generado por scripts/build_correr.py: no editar a mano. -->
+        <section id="correr" class="section slide">
+            <h2>Córrelo en ZeldaInterpreter</h2>
+            <p>Ahora sí se evalúa: el modo por defecto (<code>eval</code>) recorre el AST con <code>Eval</code> e imprime el <code>Inspect()</code> del resultado.</p>
+            
+            <div class="grid-2 correr-grid">
+<div><div class="code-block"><div class="code-header"><span>terminal · primero, las pruebas (deben salir en ok)</span></div>
+<pre><code class="language-bash">cd zeldainterpreter
+go test ./object/ ./evaluator/</code></pre></div></div>
+<div><div class="code-block"><div class="code-header"><span>salida</span></div>
+<pre><code class="language-plaintext">ok  	zeldainterpreter/object
+ok  	zeldainterpreter/evaluator</code></pre></div></div>
+            </div>
+            <div class="grid-2 correr-grid">
+<div class="card">
+<h3>Expresiones e if</h3>
+<p>Con <code>-e</code> se muestra el valor final del programa.</p>
+<div class="code-block"><div class="code-header"><span>terminal</span></div>
+<pre><code class="language-bash">go run . -e &#x27;(5 + 10 * 2 + 15 / 3) * 2 + -10&#x27;</code></pre></div>
+<div class="code-block"><div class="code-header"><span>salida</span></div>
+<pre><code class="language-plaintext">50</code></pre></div>
+</div>
+<div class="card">
+<h3>return dentro de bloques</h3>
+<p>El <code>ReturnValue</code> burbujea hasta <code>evalProgram</code>, que lo desenvuelve.</p>
+<div class="code-block"><div class="code-header"><span>terminal</span></div>
+<pre><code class="language-bash">go run . -e &#x27;if (10 &gt; 1) { if (10 &gt; 1) { return 10; } return 1; }&#x27;</code></pre></div>
+<div class="code-block"><div class="code-header"><span>salida</span></div>
+<pre><code class="language-plaintext">10</code></pre></div>
+</div>
+<div class="card">
+<h3>Un programa completo</h3>
+<p>Al ejecutar un archivo solo se ve lo que imprime <code>puts</code> (agrega <code>-resultado</code> para ver también el valor final).</p>
+<div class="code-block"><div class="code-header"><span>programas/aritmetica.mk</span></div>
+<pre><code class="language-javascript">puts(&quot;== Precedencia de operadores ==&quot;);
+puts(1 + 2 * 3);
+puts((1 + 2) * 3);
+puts(-5 + 10 / 2);
+puts(7 / 2);
+
+puts(&quot;== Comparaciones y booleanos ==&quot;);
+puts(10 &gt; 5 == true);
+puts(!true);
+puts(!!0);
+
+puts(&quot;== if es una expresion ==&quot;);
+let edad = 20;
+let mensaje = if (edad &gt; 17) { &quot;mayor de edad&quot; } else { &quot;menor de edad&quot; };
+puts(mensaje);</code></pre></div>
+<div class="code-block"><div class="code-header"><span>terminal</span></div>
+<pre><code class="language-bash">go run . programas/aritmetica.mk</code></pre></div>
+<div class="code-block"><div class="code-header"><span>salida</span></div>
+<pre><code class="language-plaintext">== Precedencia de operadores ==
+7
+9
+0
+3
+== Comparaciones y booleanos ==
+true
+false
+true
+== if es una expresion ==
+mayor de edad</code></pre></div>
+</div>
+<div class="card">
+<h3>Errores en tiempo de ejecución</h3>
+<p>El <code>*object.Error</code> corta la ejecución: la última línea nunca se imprime. El código de salida es <code>1</code>.</p>
+<div class="code-block"><div class="code-header"><span>programas/error_ejecucion.mk</span></div>
+<pre><code class="language-javascript">puts(&quot;Esta linea si se imprime.&quot;);
+let x = 5;
+let y = true;
+x + y;
+puts(&quot;Esta linea NUNCA se imprime: el error detiene el programa.&quot;);</code></pre></div>
+<div class="code-block"><div class="code-header"><span>terminal</span></div>
+<pre><code class="language-bash">go run . programas/error_ejecucion.mk
+echo $?        # código de salida</code></pre></div>
+<div class="code-block"><div class="code-header"><span>salida</span></div>
+<pre><code class="language-plaintext">Esta linea si se imprime.
+ERROR: type mismatch: INTEGER + BOOLEAN
+1</code></pre></div>
+</div>
+</div>
+            <div class="info-box"><strong>¿Y mi propio intérprete?</strong> Si construyes el tuyo siguiendo el libro, los mismos comandos funcionan sobre tu código a medida que avanzas. <code>zeldainterpreter/</code> es la versión de referencia completa para comparar resultados.</div>
+        </section>
+        <!-- CORRER:FIN -->
+
+
+        <!-- ==================== SIMULADOR ZELDAINTERPRETER ==================== -->
+        <section id="simulador-zelda" class="section slide">
+            <h2>Simulador ZeldaInterpreter</h2>
+            <p>El AST cobra vida: la pestaña <strong>Evaluación</strong> muestra el objeto resultante y su tipo. Prueba truthiness, <code>return</code> anidados y errores.</p>
+            <div data-simulator data-stage="eval" data-code="if (10 &gt; 1) {&#10;  if (10 &gt; 1) { return 10; }&#10;  return 1;&#10;}"></div>
+        </section>
+
+        <!-- ==================== 12. RESUMEN ==================== -->
+        <section id="resumen" class="section slide">
+            <h2>12. Ideas clave de la semana</h2>
+            <div class="key-ideas">
+                <div class="key-idea"><h3>Eval = type switch</h3><p>Un <code>case</code> por cada tipo de nodo del AST. Recursivo de principio a fin.</p></div>
+                <div class="key-idea"><h3>Todo es <code>object.Object</code></h3><p><code>Type()</code> + <code>Inspect()</code> unifican enteros, booleanos, null, retornos y errores.</p></div>
+                <div class="key-idea"><h3>Singletons</h3><p><code>TRUE</code>, <code>FALSE</code> y <code>NULL</code> existen una sola vez y se comparan por puntero.</p></div>
+                <div class="key-idea"><h3>Truthiness</h3><p>Solo <code>null</code> y <code>false</code> son falsos. <code>0</code> es verdadero.</p></div>
+                <div class="key-idea"><h3>Burbujeo</h3><p><code>ReturnValue</code> y <code>Error</code> suben por los bloques y solo <code>evalProgram</code> desenvuelve.</p></div>
+                <div class="key-idea"><h3>Semántica = decisiones</h3><p>El evaluador es donde el diseñador del lenguaje decide qué significa cada operación.</p></div>
+            </div>
+        </section>
+
+        <!-- ==================== 13. TALLER ==================== -->
+        <section id="taller" class="section slide">
+            <h2>13. Taller Práctico — Semana 6</h2>
+            <div class="card glass">
+                <h3><span data-icon="wrench"></span>Entregable: paquetes <code>object</code> y <code>evaluator</code> (hasta Cap. 3.8)</h3>
+                <ol class="steps">
+                    <li>Implementa <code>Integer</code>, <code>Boolean</code>, <code>Null</code>, <code>ReturnValue</code> y <code>Error</code> en <code>object/object.go</code>.</li>
+                    <li>Implementa <code>Eval</code> con enteros, booleanos, prefijos, infijos, <code>if/else</code>, <code>return</code> y errores.</li>
+                    <li>Haz pasar todas las pruebas del libro: <code>TestEvalIntegerExpression</code>, <code>TestBangOperator</code>, <code>TestIfElseExpressions</code>, <code>TestReturnStatements</code>, <code>TestErrorHandling</code>.</li>
+                    <li>Convierte el RPPL en un <strong>REPL real</strong> que imprima <code>evaluated.Inspect()</code>.</li>
+                    <li><strong>Reto:</strong> devuelve <code>ERROR: division by zero</code> en lugar del <em>panic</em> de Go, con su prueba.</li>
+                </ol>
+            </div>
+
+            <div class="exercise-cta">
+                <div>
+                    <h3>Guía de ejercicios · Semana 6</h3>
+                    <p>Predicción de resultados, truthiness, burbujeo de <code>return</code>/errores y retos en Go.</p>
+                </div>
+                <a class="btn-download" data-pdf-link href="#"><span data-icon="file-down"></span>Descargar PDF</a>
+            </div>
+
+            <div class="tip-box">
+                <strong>Próxima semana (Semana 7 · Cap. 3B):</strong> variables con <code>let</code>, el <code>Environment</code>, funciones de primera clase y <strong>closures</strong>.
+            </div>
+        </section>
+
+        <nav class="class-footer-nav" data-course-footer aria-label="Navegación entre clases"></nav>
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/go.min.js"></script>
+    <script src="../assets/course.js"></script>
+    <script src="../assets/presentation.js"></script>
+    <script src="../assets/simulator.js"></script>
+    <script src="../assets/monkey.js"></script>
+    <script src="../assets/repl-widget.js"></script>
+</body>
+</html>

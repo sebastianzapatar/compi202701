@@ -1,0 +1,3 @@
+7 compartido:    true
+1000 compartido: false
+mismo string: true | tamaño del pool: 1

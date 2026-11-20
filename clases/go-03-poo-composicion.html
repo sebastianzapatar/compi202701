@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Go III: POO, Agregación y Composición | ZeldaInterpreter · Lenguajes y Compiladores 2027-1</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css">
+    <link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body data-week="go3" data-week-num="2">
+    <a class="skip-link" href="#contenido">Saltar al contenido</a>
+
+    <aside class="sidebar">
+        <div class="logo">
+            <a href="../index.html">
+                <h1 class="brand"><span class="brand-logo" data-logo="56"></span><span class="brand-name">ZeldaInterpreter</span></h1>
+                <p class="logo-subtitle">Go III · Programación orientada a objetos</p>
+            </a>
+        </div>
+
+        <a href="../index.html" class="back-link"><span data-icon="home"></span>Portal del Curso</a>
+
+        <button type="button" class="present-btn" id="toggle-slides-btn" aria-pressed="false">
+            <span data-icon="presentation"></span>Modo Presentación <kbd>P</kbd>
+        </button>
+        <a class="pdf-btn" data-pdf-link href="#"><span data-icon="file-down"></span>Ejercicios del módulo (PDF)</a>
+
+        <nav>
+            <div class="nav-group-title">Contenido de la Clase</div>
+            <ul>
+                <li><a href="#portada" class="active">Portada y objetivos</a></li>
+                <li><a href="#go-es-poo">1. ¿Go es orientado a objetos?</a></li>
+                <li><a href="#objetos">2. Objetos: struct + métodos</a></li>
+                <li><a href="#receivers">3. Receivers y method sets</a></li>
+                <li><a href="#relaciones">4. Asociación, agregación, composición</a></li>
+                <li><a href="#sim-ciclo">5. Simulador: ciclo de vida</a></li>
+                <li><a href="#embedding">6. “Herencia” con embedding</a></li>
+                <li><a href="#sim-promocion">7. Simulador: promoción de métodos</a></li>
+                <li><a href="#embedding-interfaces">8. Embedding de interfaces</a></li>
+                <li><a href="#polimorfismo">9. Polimorfismo con interfaces</a></li>
+                <li><a href="#principios">10. Composición sobre herencia</a></li>
+                <li><a href="#en-zelda">11. POO dentro de ZeldaInterpreter</a></li>
+                <li><a href="#simulador-zelda">Simulador ZeldaInterpreter</a></li>
+                <li><a href="#resumen">12. Ideas clave</a></li>
+                <li><a href="#taller">13. Taller</a></li>
+            </ul>
+            <div data-course-nav></div>
+        </nav>
+
+        <div class="sidebar-footer">Bloque I ampliado · Módulo Go III</div>
+    </aside>
+
+    <main class="content" id="contenido">
+
+        <!-- ==================== PORTADA ==================== -->
+        <header id="portada" class="hero slide">
+            <div class="hero-badge accent"><span data-icon="layers"></span>Go III · Bloque I ampliado</div>
+            <h1>POO en Go: <span class="gradient-text">Objetos, Agregación, Composición y “Herencia”</span></h1>
+            <p>Go no tiene clases ni herencia, pero sí tiene objetos, encapsulación y polimorfismo. Hoy aprendemos a modelar con <strong>structs, métodos, embedding e interfaces</strong>, exactamente como lo hace el código de ZeldaInterpreter.</p>
+            <div class="hero-meta">
+                <span class="meta-pill"><span data-icon="code"></span>Código ejecutable en <code>ejemplos/poo/</code></span>
+                <span class="meta-pill"><span data-icon="flask"></span>2 simuladores interactivos</span>
+            </div>
+            <div class="objectives" aria-label="Objetivos de la clase">
+                <div class="objective"><span class="num">1</span><span>Traducir los conceptos de POO clásica a sus equivalentes en Go.</span></div>
+                <div class="objective"><span class="num">2</span><span>Distinguir asociación, <strong>agregación</strong> y <strong>composición</strong> por el ciclo de vida.</span></div>
+                <div class="objective"><span class="num">3</span><span>Reutilizar código con <strong>embedding</strong> y entender por qué no es herencia.</span></div>
+                <div class="objective"><span class="num">4</span><span>Diseñar con interfaces pequeñas y polimorfismo implícito.</span></div>
+            </div>
+        </header>
+
+        <!-- ==================== 1 ==================== -->
+        <section id="go-es-poo" class="section slide">
+            <h2>1. ¿Go es un lenguaje orientado a objetos?</h2>
+            <p>La respuesta oficial de las FAQ de Go es “sí y no”: hay tipos con métodos y un estilo orientado a objetos, pero <strong>no hay jerarquía de tipos</strong>. Cada idea de la POO clásica tiene un equivalente más simple:</p>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>POO clásica (Java, C#, Python)</th><th>En Go</th><th>Ejemplo en ZeldaInterpreter</th></tr></thead>
+                    <tbody>
+                        <tr><td>Clase</td><td><code>struct</code> + métodos</td><td><code>type Lexer struct{...}</code></td></tr>
+                        <tr><td>Objeto / instancia</td><td>Un valor (o puntero) de ese struct</td><td><code>l := lexer.New(input)</code></td></tr>
+                        <tr><td>Constructor</td><td>Función <code>NewX(...)</code> por convención</td><td><code>parser.New(l)</code></td></tr>
+                        <tr><td><code>this</code> / <code>self</code></td><td>El <em>receiver</em> del método</td><td><code>func (p *Parser) nextToken()</code></td></tr>
+                        <tr><td><code>private</code> / <code>public</code></td><td>minúscula / Mayúscula, a nivel de <strong>paquete</strong></td><td><code>readChar</code> vs <code>NextToken</code></td></tr>
+                        <tr><td>Herencia</td><td><strong>No existe</strong>: embedding (composición)</td><td>—</td></tr>
+                        <tr><td>Clase abstracta / interfaz</td><td><code>interface</code> implícita</td><td><code>ast.Node</code>, <code>object.Object</code></td></tr>
+                        <tr><td>Polimorfismo</td><td>Interfaces + type switch</td><td><code>Eval(node ast.Node)</code></td></tr>
+                        <tr><td>Sobrecarga de métodos</td><td>No existe: nombres distintos o variádicas</td><td><code>BuiltinFunction func(args ...Object)</code></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ==================== 2 ==================== -->
+        <section id="objetos" class="section slide">
+            <h2>2. Objetos: struct, métodos, constructor y encapsulación</h2>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>ejemplos/poo/objetos/main.go</span></div>
+<pre><code class="language-go" data-src="ejemplos/poo/objetos/main.go">// Objetos en Go: struct + métodos + constructor + encapsulación.
+package main
+
+import (
+	"errors"
+	"fmt"
+)
+
+// Token es un "objeto valor": datos inmutables con comportamiento.
+type Token struct {
+	Type    string
+	Literal string
+}
+
+// String implementa fmt.Stringer: Println lo usa automáticamente.
+func (t Token) String() string { return fmt.Sprintf("%s(%q)", t.Type, t.Literal) }
+
+// Cursor encapsula su estado: los campos en minúscula no se ven fuera del paquete.
+type Cursor struct {
+	input string
+	pos   int
+}
+
+// NewCursor es el "constructor": valida y entrega el objeto listo para usar.
+func NewCursor(input string) (*Cursor, error) {
+	if input == "" {
+		return nil, errors.New("input vacío")
+	}
+	return &amp;Cursor{input: input}, nil
+}
+
+// Next avanza el cursor (pointer receiver: modifica el estado).
+func (c *Cursor) Next() (byte, bool) {
+	if c.pos &gt;= len(c.input) {
+		return 0, false
+	}
+	ch := c.input[c.pos]
+	c.pos++
+	return ch, true
+}
+
+// Pos es un "getter": lectura controlada del estado interno.
+func (c *Cursor) Pos() int { return c.pos }
+
+func main() {
+	t := Token{Type: "INT", Literal: "5"}
+	fmt.Println(t) // usa t.String()
+
+	c, err := NewCursor("let")
+	if err != nil {
+		panic(err)
+	}
+	for ch, ok := c.Next(); ok; ch, ok = c.Next() {
+		fmt.Printf("%c@%d ", ch, c.Pos()-1)
+	}
+	fmt.Println()
+
+	if _, err := NewCursor(""); err != nil {
+		fmt.Println("error:", err)
+	}
+}</code></pre>
+                </div>
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>$ go run ./poo/objetos</span></div>
+<pre><code class="language-plaintext" data-out="ejemplos/poo/objetos">INT("5")
+l@0 e@1 t@2 
+error: input vacío</code></pre>
+                    </div>
+                    <div class="card glass">
+                        <h3>Lo que hay que notar</h3>
+                        <ul class="feature-list">
+                            <li><strong>Encapsulación por paquete:</strong> fuera de este paquete nadie puede tocar <code>pos</code>; solo <code>Next()</code> y <code>Pos()</code>.</li>
+                            <li><strong>Constructor que valida:</strong> devuelve <code>(*Cursor, error)</code>, nunca un objeto a medias.</li>
+                            <li><strong><code>String()</code></strong> convierte a <code>Token</code> en un <code>fmt.Stringer</code>: así funcionan los <code>String()</code> del AST.</li>
+                            <li><strong>Valor cero útil:</strong> un buen tipo Go funciona aun sin constructor cuando es posible (<code>var b strings.Builder</code>).</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 3 ==================== -->
+        <section id="receivers" class="section slide">
+            <h2>3. Receivers y <em>method sets</em></h2>
+            <p>Que un tipo implemente una interfaz depende de su <strong>method set</strong>, y este depende del tipo de receiver:</p>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Tipo</th><th>Métodos con receiver <code>T</code></th><th>Métodos con receiver <code>*T</code></th></tr></thead>
+                    <tbody>
+                        <tr><td>Valor <code>T</code></td><td>Sí</td><td><strong>No</strong> (en el method set)</td></tr>
+                        <tr><td>Puntero <code>*T</code></td><td>Sí</td><td>Sí</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>Por eso el evaluador usa punteros</span></div>
+<pre><code class="language-go">type Integer struct{ Value int64 }
+
+func (i *Integer) Type() ObjectType { return INTEGER_OBJ }
+func (i *Integer) Inspect() string  { return fmt.Sprintf("%d", i.Value) }
+
+var a Object = &amp;Integer{Value: 5} // ✔ *Integer tiene ambos métodos
+var b Object = Integer{Value: 5}  // ✘ no compila: Integer no implementa Object</code></pre>
+                </div>
+                <div class="card glass">
+                    <h3>Regla práctica</h3>
+                    <ul class="feature-list">
+                        <li>Si el método <strong>modifica</strong> el estado → receiver puntero.</li>
+                        <li>Si el struct es <strong>grande</strong> → puntero (evita copias).</li>
+                        <li>Si un método usa puntero, usa puntero en <strong>todos</strong> por consistencia.</li>
+                        <li>Valores pequeños e inmutables (como <code>Token</code>) → receiver valor.</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 4 ==================== -->
+        <section id="relaciones" class="section slide">
+            <h2>4. Asociación, agregación y composición</h2>
+            <p>Las tres describen “un objeto tiene/usa otro”. La diferencia está en <strong>quién crea la parte</strong> y <strong>si sobrevive al todo</strong>.</p>
+            <div class="grid-3">
+                <div class="card card-primary">
+                    <h3 style="color: var(--primary);">Asociación</h3>
+                    <p>Relación de <strong>uso</strong>, a menudo temporal. Un objeto recibe a otro como parámetro.</p>
+<pre><code class="language-go">func (p *Parser) Report(w io.Writer)</code></pre>
+                    <p style="font-size:.85rem">UML: línea simple —</p>
+                </div>
+                <div class="card card-accent">
+                    <h3 style="color: var(--accent);">Agregación ◇</h3>
+                    <p>El todo <strong>guarda una referencia</strong> a una parte que se creó fuera y puede compartirse. La parte sobrevive al todo.</p>
+<pre><code class="language-go">type REPL struct { out io.Writer }</code></pre>
+                    <p style="font-size:.85rem">UML: rombo vacío ◇</p>
+                </div>
+                <div class="card card-success">
+                    <h3 style="color: var(--success);">Composición ◆</h3>
+                    <p>El todo <strong>crea y es dueño</strong> de la parte. No se comparte y deja de existir con el todo.</p>
+<pre><code class="language-go">type REPL struct { env *Environment }</code></pre>
+                    <p style="font-size:.85rem">UML: rombo lleno ◆</p>
+                </div>
+            </div>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>ejemplos/poo/agregacion/main.go</span></div>
+<pre><code class="language-go" data-src="ejemplos/poo/agregacion/main.go">// Agregación vs composición.
+//   - Agregación: el todo USA una parte que vive fuera de él (se la entregan).
+//     Ej.: el REPL y su io.Writer, que puede compartirse con otros.
+//   - Composición: el todo CREA y es dueño de sus partes; mueren con él.
+//     Ej.: el REPL y su Environment.
+package main
+
+import (
+	"fmt"
+	"io"
+	"os"
+	"strings"
+)
+
+type Environment struct{ store map[string]int }
+
+func NewEnvironment() *Environment { return &amp;Environment{store: map[string]int{}} }
+
+type REPL struct {
+	out io.Writer    // agregación: compartido, no le pertenece
+	env *Environment // composición: lo crea y es su dueño
+}
+
+func NewREPL(out io.Writer) *REPL {
+	return &amp;REPL{out: out, env: NewEnvironment()}
+}
+
+func (r *REPL) Let(name string, v int) {
+	r.env.store[name] = v
+	fmt.Fprintf(r.out, "%s = %d\n", name, v)
+}
+
+func main() {
+	var log strings.Builder
+	shared := io.MultiWriter(os.Stdout, &amp;log)
+
+	a := NewREPL(shared)
+	b := NewREPL(shared) // ambos REPL agregan el MISMO writer
+	a.Let("x", 1)
+	b.Let("x", 2)
+
+	// Cada REPL compuso su propio entorno: no se mezclan.
+	fmt.Println("x en a:", a.env.store["x"], "| x en b:", b.env.store["x"])
+
+	a, b = nil, nil // los REPL y sus entornos quedan sin referencias (basura)...
+	fmt.Print("...pero el writer agregado sigue vivo:\n", log.String())
+}</code></pre>
+                </div>
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>$ go run ./poo/agregacion</span></div>
+<pre><code class="language-plaintext" data-out="ejemplos/poo/agregacion">x = 1
+x = 2
+x en a: 1 | x en b: 2
+...pero el writer agregado sigue vivo:
+x = 1
+x = 2</code></pre>
+                    </div>
+                    <div class="info-box">
+                        <strong>En Go la diferencia es semántica, no sintáctica:</strong> ambos casos son un campo puntero. Lo que cambia es <em>quién lo crea</em> (el constructor o el llamador) y <em>quién más lo referencia</em>. Documéntalo en el comentario del campo.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 5: SIM CICLO ==================== -->
+        <section id="sim-ciclo" class="section slide">
+            <h2>5. Simulador: ciclo de vida en agregación vs composición</h2>
+            <p>Crea y destruye REPLs. Observa qué objetos siguen vivos (alcanzables) y cuáles recoge el <em>garbage collector</em>.</p>
+            <div class="playground">
+                <div class="playground-actions">
+                    <button type="button" class="btn-pill primary" data-life="create-a">Crear REPL a</button>
+                    <button type="button" class="btn-pill primary" data-life="create-b">Crear REPL b</button>
+                    <button type="button" class="btn-pill" data-life="drop-a">a = nil</button>
+                    <button type="button" class="btn-pill" data-life="drop-b">b = nil</button>
+                    <button type="button" class="btn-pill" data-life="reset">Reiniciar</button>
+                </div>
+                <div class="life-grid" id="life-grid" aria-live="polite"></div>
+                <div class="viz-label" style="margin-top:1rem">Explicación</div>
+                <div class="viz-output" id="life-log"></div>
+            </div>
+        </section>
+
+        <!-- ==================== 6 ==================== -->
+        <section id="embedding" class="section slide">
+            <h2>6. “Herencia” en Go: embedding</h2>
+            <p>Al <strong>embeber</strong> un tipo (campo sin nombre), sus campos y métodos se <strong>promueven</strong> al tipo externo. Parece herencia, pero es composición: el tipo externo <em>contiene</em> un valor del embebido.</p>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>ejemplos/poo/embedding/main.go</span></div>
+<pre><code class="language-go" data-src="ejemplos/poo/embedding/main.go">// "Herencia" en Go: NO existe. Se usa EMBEDDING (composición con promoción
+// de métodos) para reutilizar código, e interfaces para el polimorfismo.
+package main
+
+import "fmt"
+
+// BaseNode tiene comportamiento reutilizable.
+type BaseNode struct {
+	Literal string
+}
+
+func (b BaseNode) TokenLiteral() string { return b.Literal }
+func (b BaseNode) Kind() string         { return "genérico" }
+func (b BaseNode) Describe() string     { return "nodo " + b.Kind() } // llama a SU Kind
+
+// Integer embebe BaseNode: sus métodos se PROMUEVEN a Integer.
+type Integer struct {
+	BaseNode
+	Value int64
+}
+
+// Kind oculta (shadowing) al método promovido. No es un override virtual.
+func (i Integer) Kind() string { return "entero" }
+
+type Node interface {
+	TokenLiteral() string
+	Kind() string
+}
+
+func main() {
+	n := Integer{BaseNode: BaseNode{Literal: "5"}, Value: 5}
+
+	fmt.Println(n.TokenLiteral())  // promovido desde BaseNode
+	fmt.Println(n.Kind())          // método propio de Integer
+	fmt.Println(n.BaseNode.Kind()) // acceso explícito al embebido
+	fmt.Println(n.Describe())      // ¡"nodo genérico"! No hay despacho virtual
+
+	var node Node = n // Integer satisface Node gracias a los métodos promovidos
+	fmt.Println(node.Kind())
+}</code></pre>
+                </div>
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>$ go run ./poo/embedding</span></div>
+<pre><code class="language-plaintext" data-out="ejemplos/poo/embedding">5
+entero
+genérico
+nodo genérico
+entero</code></pre>
+                    </div>
+                    <div class="warn-box">
+                        <strong>La trampa clásica:</strong> <code>n.Describe()</code> imprime “nodo genérico”, no “nodo entero”. Dentro de <code>BaseNode.Describe</code>, el receiver es un <code>BaseNode</code> y no sabe nada de <code>Integer</code>. En Go <strong>no hay métodos virtuales</strong>: si necesitas que el comportamiento varíe, usa una interfaz.
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead><tr><th>Herencia (Java)</th><th>Embedding (Go)</th></tr></thead>
+                            <tbody>
+                                <tr><td>Relación “es un”</td><td>Relación “tiene un” con atajos</td></tr>
+                                <tr><td><code>super.metodo()</code></td><td><code>n.BaseNode.Metodo()</code></td></tr>
+                                <tr><td>Override con despacho virtual</td><td>Shadowing, sin despacho virtual</td></tr>
+                                <tr><td>Subtipo asignable a la clase base</td><td><code>Integer</code> <strong>no</strong> es asignable a <code>BaseNode</code></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 7: SIM PROMOCIÓN ==================== -->
+        <section id="sim-promocion" class="section slide">
+            <h2>7. Simulador: ¿qué método se ejecuta?</h2>
+            <p>Marca qué métodos <strong>define</strong> <code>Integer</code> (además de embeber <code>BaseNode</code>) y mira cómo Go resuelve cada llamada.</p>
+            <div class="playground">
+                <fieldset class="promo-options">
+                    <legend class="viz-label">Integer define su propio…</legend>
+                    <label><input type="checkbox" data-promo="Kind" checked> <code>Kind()</code></label>
+                    <label><input type="checkbox" data-promo="TokenLiteral"> <code>TokenLiteral()</code></label>
+                    <label><input type="checkbox" data-promo="Describe"> <code>Describe()</code></label>
+                </fieldset>
+                <div class="table-wrap">
+                    <table class="trace-table">
+                        <thead><tr><th>Llamada</th><th>Método que se ejecuta</th><th>Resultado</th></tr></thead>
+                        <tbody id="promo-body" aria-live="polite"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 8 ==================== -->
+        <section id="embedding-interfaces" class="section slide">
+            <h2>8. Embedding de interfaces (y de punteros)</h2>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>Interfaces que se componen</span></div>
+<pre><code class="language-go">// Biblioteca estándar
+type Reader interface { Read(p []byte) (n int, err error) }
+type Writer interface { Write(p []byte) (n int, err error) }
+type ReadWriter interface {
+    Reader
+    Writer
+}
+
+// ast/ast.go — ¡ya lo usamos en la Semana 4!
+type Statement interface {
+    Node            // embebe la interfaz Node
+    statementNode()
+}</code></pre>
+                </div>
+                <div class="code-block">
+                    <div class="code-header"><span>Embeber un puntero y conflictos</span></div>
+<pre><code class="language-go">type Logger struct{ prefix string }
+func (l *Logger) Log(msg string) { fmt.Println(l.prefix + msg) }
+
+type Parser struct {
+    *Logger            // embebe un puntero: se comparte
+    errors []string
+}
+
+p := Parser{Logger: &amp;Logger{prefix: "[parser] "}}
+p.Log("inicio")        // promovido desde *Logger
+
+// Si dos embebidos al MISMO nivel tienen Log(),
+// p.Log() es un error de compilación: "ambiguous selector".</code></pre>
+                </div>
+            </div>
+            <div class="tip-box">
+                <strong>Interfaces pequeñas:</strong> en Go las mejores interfaces tienen uno o dos métodos (<code>io.Reader</code>, <code>fmt.Stringer</code>, <code>error</code>) y se combinan por embedding cuando hace falta.
+            </div>
+        </section>
+
+        <!-- ==================== 9 ==================== -->
+        <section id="polimorfismo" class="section slide">
+            <h2>9. Polimorfismo con interfaces implícitas</h2>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>ejemplos/poo/polimorfismo/main.go</span></div>
+<pre><code class="language-go" data-src="ejemplos/poo/polimorfismo/main.go">// Polimorfismo con interfaces: muchos tipos, un mismo contrato.
+package main
+
+import (
+	"fmt"
+	"strings"
+)
+
+type Object interface {
+	Type() string
+	Inspect() string
+}
+
+type Integer struct{ Value int64 }
+type Boolean struct{ Value bool }
+type Array struct{ Elements []Object }
+
+func (i *Integer) Type() string    { return "INTEGER" }
+func (i *Integer) Inspect() string { return fmt.Sprint(i.Value) }
+func (b *Boolean) Type() string    { return "BOOLEAN" }
+func (b *Boolean) Inspect() string { return fmt.Sprint(b.Value) }
+func (a *Array) Type() string      { return "ARRAY" }
+func (a *Array) Inspect() string {
+	parts := make([]string, len(a.Elements))
+	for i, e := range a.Elements {
+		parts[i] = e.Inspect() // cada elemento sabe imprimirse a sí mismo
+	}
+	return "[" + strings.Join(parts, ", ") + "]"
+}
+
+// Verificación en tiempo de compilación: si un tipo deja de cumplir Object, no compila.
+var (
+	_ Object = (*Integer)(nil)
+	_ Object = (*Boolean)(nil)
+	_ Object = (*Array)(nil)
+)
+
+func truthy(o Object) bool {
+	switch v := o.(type) { // type switch: decidir según el tipo concreto
+	case *Boolean:
+		return v.Value
+	default:
+		return true
+	}
+}
+
+func main() {
+	objs := []Object{
+		&amp;Integer{Value: 5},
+		&amp;Boolean{Value: false},
+		&amp;Array{Elements: []Object{&amp;Integer{Value: 1}, &amp;Boolean{Value: true}}},
+	}
+	for _, o := range objs {
+		fmt.Printf("%-7s %-12s truthy=%v\n", o.Type(), o.Inspect(), truthy(o))
+	}
+}</code></pre>
+                </div>
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>$ go run ./poo/polimorfismo</span></div>
+<pre><code class="language-plaintext" data-out="ejemplos/poo/polimorfismo">INTEGER 5            truthy=true
+BOOLEAN false        truthy=false
+ARRAY   [1, true]    truthy=true</code></pre>
+                    </div>
+                    <div class="card glass">
+                        <h3>Dos formas de polimorfismo</h3>
+                        <ul class="feature-list">
+                            <li><strong>Despacho dinámico:</strong> <code>o.Inspect()</code> llama al método del tipo concreto.</li>
+                            <li><strong>Type switch:</strong> el código cliente decide según el tipo (así funciona <code>Eval</code>).</li>
+                            <li><code>var _ Object = (*Integer)(nil)</code> obliga al compilador a verificar que el tipo cumple la interfaz.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 10 ==================== -->
+        <section id="principios" class="section slide">
+            <h2>10. Composición sobre herencia (y SOLID en Go)</h2>
+            <div class="key-ideas">
+                <div class="key-idea"><h3>S · Responsabilidad única</h3><p><code>lexer</code>, <code>parser</code> y <code>evaluator</code> son paquetes separados con un solo motivo de cambio cada uno.</p></div>
+                <div class="key-idea"><h3>O · Abierto/cerrado</h3><p>Agregar un operador es registrar una función (<code>registerInfix</code>) sin modificar <code>parseExpression</code>.</p></div>
+                <div class="key-idea"><h3>L · Sustitución de Liskov</h3><p>Cualquier <code>object.Object</code> debe poder imprimirse con <code>Inspect()</code> sin sorpresas.</p></div>
+                <div class="key-idea"><h3>I · Segregación de interfaces</h3><p>Interfaces pequeñas: <code>Node</code> solo pide <code>TokenLiteral()</code> y <code>String()</code>.</p></div>
+                <div class="key-idea"><h3>D · Inversión de dependencias</h3><p>“Acepta interfaces, devuelve structs”: <code>repl.Start(in io.Reader, out io.Writer)</code>.</p></div>
+                <div class="key-idea"><h3>Composición</h3><p>Combinar piezas pequeñas es más flexible que una jerarquía profunda de clases.</p></div>
+            </div>
+        </section>
+
+        <!-- ==================== 11 ==================== -->
+        <section id="en-zelda" class="section slide">
+            <h2>11. POO dentro de ZeldaInterpreter</h2>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Concepto</th><th>Dónde aparece</th><th>Semana</th></tr></thead>
+                    <tbody>
+                        <tr><td>Objeto con estado encapsulado</td><td><code>Lexer</code> (<code>position</code>, <code>readPosition</code>, <code>ch</code>)</td><td>3</td></tr>
+                        <tr><td>Constructor</td><td><code>lexer.New</code>, <code>parser.New</code>, <code>object.NewEnvironment</code></td><td>3–7</td></tr>
+                        <tr><td>Agregación</td><td><code>Parser</code> guarda el <code>*lexer.Lexer</code> que le pasan</td><td>4</td></tr>
+                        <tr><td>Composición</td><td><code>Parser</code> crea sus mapas <code>prefixParseFns</code>/<code>infixParseFns</code></td><td>5</td></tr>
+                        <tr><td>Embedding de interfaces</td><td><code>Statement</code> y <code>Expression</code> embeben <code>Node</code></td><td>4</td></tr>
+                        <tr><td>Polimorfismo</td><td><code>object.Object</code> con <code>Integer</code>, <code>Boolean</code>, <code>Function</code>…</td><td>6–8</td></tr>
+                        <tr><td>Agregación con <code>outer</code></td><td><code>Environment</code> encerrado referencia al externo sin ser su dueño</td><td>7</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ==================== SIMULADOR ==================== -->
+        <section id="simulador-zelda" class="section slide">
+            <h2>Simulador ZeldaInterpreter</h2>
+            <p>Abre la pestaña <strong>Evaluación</strong>: cada valor que ves es un objeto Go distinto (<code>*object.Integer</code>, <code>*object.Function</code>…) que cumple la misma interfaz <code>object.Object</code>.</p>
+            <div data-simulator data-stage="eval" data-code="let nums = [1, 2, 3];&#10;let doble = fn(x) { x * 2 };&#10;doble(len(nums));"></div>
+        </section>
+
+        <!-- ==================== RESUMEN ==================== -->
+        <section id="resumen" class="section slide">
+            <h2>12. Ideas clave</h2>
+            <div class="key-ideas">
+                <div class="key-idea"><h3>Objeto = struct + métodos</h3><p>Constructores <code>NewX</code> y encapsulación por paquete.</p></div>
+                <div class="key-idea"><h3>Receivers</h3><p>El tipo de receiver define el method set y qué interfaces se cumplen.</p></div>
+                <div class="key-idea"><h3>Agregación vs composición</h3><p>La diferencia es quién crea la parte y si sobrevive al todo.</p></div>
+                <div class="key-idea"><h3>Embedding ≠ herencia</h3><p>Promueve métodos, pero no hay despacho virtual ni subtipos.</p></div>
+                <div class="key-idea"><h3>Interfaces implícitas</h3><p>Polimorfismo sin declarar “implements”.</p></div>
+                <div class="key-idea"><h3>Composición primero</h3><p>Piezas pequeñas e interfaces pequeñas.</p></div>
+            </div>
+        </section>
+
+        <!-- ==================== TALLER ==================== -->
+        <section id="taller" class="section slide">
+            <h2>13. Taller — Go III</h2>
+            <div class="card glass">
+                <h3><span data-icon="wrench"></span>Mini biblioteca de figuras de AST</h3>
+                <ol class="steps">
+                    <li>Ejecuta los cuatro ejemplos con <code>cd ejemplos &amp;&amp; go run ./poo/...</code> y explica cada salida.</li>
+                    <li>Diseña un <code>BaseNode</code> embebible con <code>Token</code> y <code>TokenLiteral()</code>, y úsalo en tres nodos distintos.</li>
+                    <li>Modela un <code>Interpreter</code> que <strong>agregue</strong> un <code>io.Writer</code> y <strong>componga</strong> su <code>Environment</code>. Documenta cada relación.</li>
+                    <li>Corrige el problema de <code>Describe()</code> usando una interfaz en vez de depender del embedding.</li>
+                </ol>
+            </div>
+            <div class="exercise-cta">
+                <div>
+                    <h3>Guía de ejercicios · Go III</h3>
+                    <p>Method sets, relaciones entre objetos, embedding y polimorfismo.</p>
+                </div>
+                <a class="btn-download" data-pdf-link href="#"><span data-icon="file-down"></span>Descargar PDF</a>
+            </div>
+        </section>
+
+        <nav class="class-footer-nav" data-course-footer aria-label="Navegación entre clases"></nav>
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/go.min.js"></script>
+    <script src="../assets/course.js"></script>
+    <script src="../assets/presentation.js"></script>
+    <script src="../assets/monkey.js"></script>
+    <script src="../assets/simulator.js"></script>
+    <script>
+        /* ---------- Simulador de ciclo de vida ---------- */
+        (function () {
+            const grid = document.getElementById('life-grid');
+            const log = document.getElementById('life-log');
+            let st = { a: false, b: false, everA: false, everB: false };
+            const box = (title, alive, kind, note) =>
+                `<div class="life-box ${alive ? 'alive' : 'dead'} ${kind}"><b>${title}</b><span>${alive ? 'vivo' : (note || 'no existe')}</span></div>`;
+            function render(msg) {
+                const writerRefs = (st.a ? 1 : 0) + (st.b ? 1 : 0) + 1;
+                grid.innerHTML = `
+                    <div class="life-col"><div class="viz-label">main()</div>${box('io.Writer compartido', true, 'agg', '')}<small>referencias: ${writerRefs} (main${st.a ? ' + a' : ''}${st.b ? ' + b' : ''})</small></div>
+                    <div class="life-col"><div class="viz-label">REPL a</div>${box('a *REPL', st.a, '', st.everA ? 'recolectado por el GC' : '')}<div class="life-rel">◇ out → writer &nbsp; ◆ env</div>${box('a.env *Environment', st.a, 'comp', st.everA ? 'recolectado con a' : '')}</div>
+                    <div class="life-col"><div class="viz-label">REPL b</div>${box('b *REPL', st.b, '', st.everB ? 'recolectado por el GC' : '')}<div class="life-rel">◇ out → writer &nbsp; ◆ env</div>${box('b.env *Environment', st.b, 'comp', st.everB ? 'recolectado con b' : '')}</div>`;
+                log.textContent = msg;
+            }
+            const actions = {
+                'create-a': () => { st.a = st.everA = true; return 'NewREPL(shared): a AGREGA el writer existente y COMPONE un Environment nuevo.'; },
+                'create-b': () => { st.b = st.everB = true; return 'b agrega el MISMO writer (se comparte) y compone SU PROPIO Environment.'; },
+                'drop-a': () => { if (!st.a) return 'a no existe.'; st.a = false; return 'a = nil: nada referencia ya a "a" ni a "a.env" → el GC los libera. El writer sobrevive: lo siguen usando main' + (st.b ? ' y b.' : '.'); },
+                'drop-b': () => { if (!st.b) return 'b no existe.'; st.b = false; return 'b = nil: b y b.env se liberan. El writer agregado sigue vivo.'; },
+                'reset': () => { st = { a: false, b: false, everA: false, everB: false }; return 'Solo existe el writer creado en main().'; }
+            };
+            document.querySelectorAll('[data-life]').forEach((b) => b.addEventListener('click', () => render(actions[b.dataset.life]())));
+            render('Solo existe el writer creado en main(). Crea REPLs para empezar.');
+        })();
+
+        /* ---------- Simulador de promoción de métodos ---------- */
+        (function () {
+            const body = document.getElementById('promo-body');
+            const boxes = document.querySelectorAll('[data-promo]');
+            function render() {
+                const def = {};
+                boxes.forEach((b) => { def[b.dataset.promo] = b.checked; });
+                const kindInteger = def.Kind ? 'entero' : 'genérico';
+                const rows = [
+                    ['n.TokenLiteral()', def.TokenLiteral ? 'Integer.TokenLiteral' : 'BaseNode.TokenLiteral (promovido)', def.TokenLiteral ? '"literal de Integer"' : '"5"'],
+                    ['n.Kind()', def.Kind ? 'Integer.Kind' : 'BaseNode.Kind (promovido)', `"${kindInteger}"`],
+                    ['n.BaseNode.Kind()', 'BaseNode.Kind (acceso explícito)', '"genérico"'],
+                    ['n.Describe()', def.Describe ? 'Integer.Describe' : 'BaseNode.Describe (promovido) → llama a BaseNode.Kind', def.Describe ? `"nodo ${kindInteger}"` : '"nodo genérico"  ← sin despacho virtual'],
+                    ['var x Node = n; x.Kind()', def.Kind ? 'Integer.Kind (vía interfaz)' : 'BaseNode.Kind (vía interfaz)', `"${kindInteger}"`]
+                ];
+                body.innerHTML = rows.map(([c, m, r]) => `<tr><td><code>${c}</code></td><td>${m}</td><td style="color:var(--success)">${r}</td></tr>`).join('');
+            }
+            boxes.forEach((b) => b.addEventListener('change', render));
+            render();
+        })();
+    </script>
+</body>
+</html>

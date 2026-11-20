@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZeldaInterpreter | Lenguajes y Compiladores 2027-1</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css">
+    <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+    <a class="skip-link" href="#contenido">Saltar al contenido</a>
+
+    <aside class="sidebar">
+        <div class="logo">
+            <a href="index.html">
+                <h1 class="brand"><span class="brand-logo" data-logo="56"></span><span class="brand-name">ZeldaInterpreter</span></h1>
+                <p class="logo-subtitle">Lenguajes y Compiladores 2027-1</p>
+            </a>
+        </div>
+
+        <button type="button" class="present-btn" id="toggle-slides-btn" aria-pressed="false">
+            <span data-icon="presentation"></span>Modo Presentación <kbd>P</kbd>
+        </button>
+
+        <nav>
+            <div class="nav-group-title">Resumen del Curso</div>
+            <ul>
+                <li><a href="#intro" class="active">1. ¿De qué trata el curso?</a></li>
+                <li><a href="#pipeline">2. Pipeline del Intérprete</a></li>
+                <li><a href="#monkey-preview">3. El Lenguaje Monkey</a></li>
+                <li><a href="#simulador-zelda">Simulador ZeldaInterpreter</a></li>
+                <li><a href="#roadmap">4. Plan del Curso</a></li>
+                <li><a href="#ejercicios">5. Guías de Ejercicios (PDF)</a></li>
+                <li><a href="#methodology">6. Metodología y Libro</a></li>
+                <li><a href="#correr">7. Cómo correr ZeldaInterpreter</a></li>
+            </ul>
+
+            <div data-course-nav></div>
+        </nav>
+
+        <div class="sidebar-footer">
+            Basado en <em>Writing An Interpreter In Go</em><br>
+            Thorsten Ball · Semestre 2027-1
+        </div>
+    </aside>
+
+    <main class="content" id="contenido">
+
+        <!-- ==================== HERO / SLIDE 1 ==================== -->
+        <header id="intro" class="hero slide">
+            <div class="hero-badge"><span data-icon="zap"></span>Curso 2027-1 · Go + Intérprete</div>
+            <h1>Construyendo <span class="gradient-text">ZeldaInterpreter</span>: un intérprete desde cero en Go</h1>
+            <p>Guía interactiva y presentaciones del curso <strong>Lenguajes y Compiladores</strong>. Primero dominaremos Go (fundamentos, POO, concurrencia y patrones de diseño) y luego, en 6 semanas, construiremos paso a paso <strong>ZeldaInterpreter</strong>, nuestro intérprete completo del lenguaje <strong>Monkey</strong>, sin librerías externas.</p>
+            <div class="hero-meta">
+                <span class="meta-pill"><span data-icon="book"></span>Libro guía: <em>Writing An Interpreter In Go</em></span>
+                <span class="meta-pill"><span data-icon="calendar"></span>Bloque I: 6 clases de Go · Bloque II: 6 semanas de intérprete</span>
+                <span class="meta-pill"><span data-icon="presentation"></span>Pulsa <code>P</code> en cualquier clase para modo diapositivas</span>
+                <span class="meta-pill"><span data-icon="file-down"></span>Guía de ejercicios PDF por semana</span>
+            </div>
+        </header>
+
+        <!-- ==================== SECCIÓN 1: VISIÓN GENERAL ==================== -->
+        <section class="section slide" id="overview">
+            <h2>1. ¿Por qué construir un Intérprete?</h2>
+            <div class="card glass">
+                <h3>De texto plano a programas vivos</h3>
+                <p>Un intérprete es un programa que <strong>lee, analiza y ejecuta</strong> otros programas. En lugar de tratar los lenguajes de programación como cajas negras mágicas, construiremos cada pieza desde cero para entender exactamente cómo una computadora le da sentido a caracteres, expresiones, funciones y memoria.</p>
+            </div>
+
+            <div class="grid-2">
+                <div class="card card-primary">
+                    <h3 style="color: var(--primary);">Bloque I · Go (Semanas 1–2 + módulos Go III–VI)</h3>
+                    <p>Aprenderemos exactamente el subconjunto de <strong>Go</strong> necesario para escribir software limpio y testeable:</p>
+                    <ul class="feature-list">
+                        <li>Sintaxis, paquetes, slices y maps</li>
+                        <li>Structs, punteros e interfaces implícitas</li>
+                        <li>Funciones de primera clase y closures</li>
+                        <li><em>Table-Driven Tests</em> con <code>go test</code></li>
+                        <li><strong>POO en Go:</strong> objetos, agregación, composición y embedding</li>
+                        <li><strong>Concurrencia:</strong> goroutines, canales, <code>select</code> y <code>context</code></li>
+                        <li><strong>22 patrones de diseño</strong> (GoF) aplicados al intérprete</li>
+                    </ul>
+                </div>
+                <div class="card card-accent">
+                    <h3 style="color: var(--accent);">Bloque II · Semanas 3 a 8 (Monkey)</h3>
+                    <p>Implementaremos un intérprete <strong>Tree-Walking</strong> completo siguiendo capítulo a capítulo el libro:</p>
+                    <ul class="feature-list accent">
+                        <li><strong>Lexer</strong> y REPL interactivo (Cap. 1)</li>
+                        <li><strong>AST</strong> y <strong>Parser Pratt</strong> de precedencia (Cap. 2)</li>
+                        <li><strong>Evaluador</strong>, Objetos, Entornos y Closures (Cap. 3)</li>
+                        <li><strong>Strings, Built-ins, Arrays y Hashes</strong> (Cap. 4)</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== SECCIÓN 2: PIPELINE ==================== -->
+        <section class="section slide" id="pipeline">
+            <h2>2. Arquitectura y Pipeline del Intérprete</h2>
+            <p>Todo el código escrito en Monkey atraviesa <strong>tres grandes transformaciones</strong> antes de producir un resultado en pantalla. Cada etapa tiene una responsabilidad única, pruebas unitarias propias y un paquete dedicado en Go:</p>
+
+            <div class="pipeline">
+                <div class="pipeline-step">Código Fuente<small>let x = 5 + 3 * 2;</small></div>
+                <span class="pipeline-arrow">→</span>
+                <div class="pipeline-step">Lexer<small>package lexer</small></div>
+                <span class="pipeline-arrow">→</span>
+                <div class="pipeline-step">Tokens<small>package token</small></div>
+                <span class="pipeline-arrow">→</span>
+                <div class="pipeline-step">Parser (Pratt)<small>package parser / ast</small></div>
+                <span class="pipeline-arrow">→</span>
+                <div class="pipeline-step">Evaluador<small>package evaluator</small></div>
+                <span class="pipeline-arrow">→</span>
+                <div class="pipeline-step">Resultado<small>package object</small></div>
+            </div>
+
+            <div class="grid-3">
+                <div class="card card-primary">
+                    <h3>1. Análisis Léxico</h3>
+                    <p>Convierte una cadena cruda de caracteres en una secuencia limpia de <strong>Tokens</strong> etiquetados (<code>LET</code>, <code>IDENT</code>, <code>INT</code>, <code>PLUS</code>...).</p>
+                </div>
+                <div class="card card-accent">
+                    <h3>2. Análisis Sintáctico</h3>
+                    <p>Organiza los tokens en un <strong>Árbol de Sintaxis Abstracta (AST)</strong> respetando reglas gramaticales y precedencia de operadores.</p>
+                </div>
+                <div class="card card-success">
+                    <h3>3. Evaluación</h3>
+                    <p>Recorre el AST (<em>Tree-Walking</em>), gestiona variables en entornos (<code>Environment</code>) y produce objetos en memoria.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== SECCIÓN 3: MONKEY PREVIEW ==================== -->
+        <section class="section slide" id="monkey-preview">
+            <h2>3. Conoce el Lenguaje Monkey</h2>
+            <p>Al finalizar la Semana 8, nuestro intérprete ejecutará programas funcionales reales con sintaxis tipo C, recursividad, closures y colecciones:</p>
+
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>ejemplo_monkey.mk</span></div>
+<pre><code class="language-javascript">// Variables, enteros, strings, arrays y hashes
+let name = "Monkey";
+let scores = [10, 20, 30];
+let student = {"name": name, "grade": 5};
+
+// Funciones de primera clase y retorno implícito
+let add = fn(a, b) { a + b };
+
+// Closures y funciones de orden superior
+let newAdder = fn(x) {
+    fn(y) { x + y }
+};
+let addTwo = newAdder(2);
+addTwo(8); // =&gt; 10</code></pre>
+                </div>
+
+                <div class="card glass">
+                    <h3>Capacidades de Monkey</h3>
+                    <ul class="feature-list">
+                        <li>Sintaxis limpia inspirada en C y JavaScript</li>
+                        <li>Enlaces de variables con <code>let</code></li>
+                        <li>Enteros, booleanos, <code>null</code> y strings</li>
+                        <li>Expresiones aritméticas, prefijas e infijas con precedencia completa</li>
+                        <li>Condicionales <code>if / else</code> como expresiones</li>
+                        <li>Funciones de primera clase, orden superior y <strong>closures</strong></li>
+                        <li>Funciones integradas (<code>len</code>, <code>first</code>, <code>last</code>, <code>rest</code>, <code>push</code>, <code>puts</code>)</li>
+                        <li>Estructuras de datos: <strong>Arrays</strong> y <strong>Hashes</strong></li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== SIMULADOR ZELDAINTERPRETER ==================== -->
+        <section id="simulador-zelda" class="section slide">
+            <h2>Simulador ZeldaInterpreter</h2>
+            <p>Prueba ahora mismo el intérprete completo que construiremos. Escribe Monkey y recorre las tres fases: así se verá tu <strong>ZeldaInterpreter</strong> al final de la Semana 8.</p>
+            <div data-simulator data-stage="eval" data-code="let fib = fn(n) {&#10;  if (n &lt; 2) { n } else { fib(n - 1) + fib(n - 2) }&#10;};&#10;fib(15);"></div>
+        </section>
+
+        <!-- ==================== SECCIÓN 4: ROADMAP 8 SEMANAS ==================== -->
+        <section class="section slide" id="roadmap">
+            <h2>4. Plan de Clases</h2>
+            <p>Cada clase es una presentación híbrida: <strong>modo guía</strong> para estudiar con scroll y <strong>modo diapositivas</strong> (tecla <code>P</code>) para proyectar en clase. Cada semana trae su guía de ejercicios en PDF.</p>
+
+            <div class="module-grid" data-course-roadmap></div>
+        </section>
+
+        <!-- ==================== SECCIÓN 5: EJERCICIOS ==================== -->
+        <section class="section slide" id="ejercicios">
+            <h2>5. Guías de Ejercicios para Estudiantes</h2>
+            <p>Cada semana tiene una guía imprimible en PDF (carpeta <code>ejercicios/pdf/</code>) con la misma estructura, para que el estudiante sepa siempre qué esperar:</p>
+            <div class="grid-3">
+                <div class="card card-primary">
+                    <h3>Parte A · Conceptos</h3>
+                    <p>Preguntas cortas y de selección para verificar que se entendió el <em>por qué</em> de cada decisión de diseño del libro.</p>
+                </div>
+                <div class="card card-accent">
+                    <h3>Parte B · Trazas a mano</h3>
+                    <p>Tokenizar, dibujar ASTs, seguir la precedencia de Pratt o evaluar entornos en papel, antes de tocar el teclado.</p>
+                </div>
+                <div class="card card-success">
+                    <h3>Parte C · Programación</h3>
+                    <p>Retos en Go con firmas de funciones y casos de prueba esperados, más un reto opcional de extensión del lenguaje.</p>
+                </div>
+            </div>
+            <div class="info-box">
+                <strong>Cómo se usan:</strong> la Parte A y B se pueden resolver en clase o como quiz; la Parte C es el entregable semanal (repositorio con <code>go test ./...</code> en verde). Cada guía incluye una rúbrica de evaluación al final.
+            </div>
+        </section>
+
+        <!-- ==================== SECCIÓN 5: METODOLOGÍA ==================== -->
+        <section class="section slide" id="methodology">
+            <h2>6. Metodología del Curso y Referencia</h2>
+            <div class="grid-2">
+                <div class="card card-success">
+                    <h3 style="color: var(--success);">Desarrollo Guiado por Pruebas (TDD)</h3>
+                    <p>Siguiendo la filosofía del libro, cada característica del intérprete se construye bajo el mismo ciclo:</p>
+                    <ol>
+                        <li>Definimos el comportamiento esperado en un <code>*_test.go</code>.</li>
+                        <li>Ejecutamos <code>go test ./...</code> y observamos la falla.</li>
+                        <li>Implementamos el código mínimo y limpio para pasar las pruebas.</li>
+                        <li>Refactorizamos y probamos en el REPL interactivo.</li>
+                    </ol>
+                </div>
+                <div class="card card-warning">
+                    <h3 style="color: var(--warning);">Estructura Final del Proyecto</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span>zeldainterpreter/</span></div>
+<pre><code class="language-bash">zeldainterpreter/
+├── go.mod
+├── main.go          # Línea de comandos: archivo, stdin, -e, -modo
+├── token/           # Definición de tokens (Sem 3)
+├── lexer/           # Análisis léxico (Sem 3)
+├── ast/             # Nodos del AST + dibujante de árboles (Sem 4-5)
+├── parser/          # Pratt Parser (Sem 4-5)
+├── object/          # Sistema de objetos y Environment (Sem 6-8)
+├── evaluator/       # Tree-Walking Evaluator + built-ins (Sem 6-8)
+├── runner/          # Modos: eval, tokens, ast, arbol
+├── repl/            # Consola interactiva con comandos
+└── programas/       # Ejemplos .mk</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tip-box">
+                <strong>Tip para usar este sitio en clase:</strong> Cada semana tiene un botón <strong>Modo Presentación</strong> (o tecla <code>P</code>) que convierte la página en diapositivas limpias con barra de progreso y navegación por teclado (<code>←</code> / <code>→</code> / <code>Esc</code>). Para estudiar después de clase, el modo guía permite leer, copiar código y consultar referencias con scroll continuo.
+            </div>
+        </section>
+
+        <!-- CORRER:INICIO -->
+        <!-- Generado por scripts/build_correr.py: no editar a mano. -->
+        <section id="correr" class="section slide">
+            <h2>7. Cómo correr ZeldaInterpreter</h2>
+            <p>El intérprete de referencia está en la carpeta <code>zeldainterpreter/</code>. Necesitas <strong>Go 1.23 o superior</strong>. Todos los comandos se escriben <strong>dentro de esa carpeta</strong>; las opciones (<code>-modo</code>, <code>-e</code>…) van <strong>antes</strong> del nombre del archivo.</p>
+            <div class="table-wrap"><table>
+<thead><tr><th>Cómo se llama</th><th>Qué hace</th></tr></thead>
+<tbody>
+<tr><td><code>go run .</code></td><td>Abre la <strong>consola interactiva</strong> (REPL). <code>:ayuda</code> lista sus comandos.</td></tr>
+<tr><td><code>go run . programa.mk</code></td><td>Ejecuta un <strong>archivo</strong> <code>.mk</code>.</td></tr>
+<tr><td><code>go run . -e "código"</code></td><td>Ejecuta <strong>código escrito en la línea de comandos</strong>.</td></tr>
+<tr><td><code>cat programa.mk | go run . -</code></td><td>Ejecuta lo que llegue por la <strong>entrada estándar</strong>.</td></tr>
+<tr><td><code>-modo=tokens | ast | arbol | eval</code></td><td>Elige <strong>hasta qué fase</strong> llega: lexer, parser (texto o árbol) o evaluación completa.</td></tr>
+<tr><td><code>go build -o zelda .</code></td><td>Compila el ejecutable <code>zelda</code> (en Windows <code>zelda.exe</code>); luego <code>./zelda programa.mk</code>.</td></tr>
+</tbody></table></div>
+            <div class="grid-2 correr-grid">
+<div><div class="code-block"><div class="code-header"><span>terminal · primero, las pruebas (deben salir en ok)</span></div>
+<pre><code class="language-bash">cd zeldainterpreter
+go test ./...</code></pre></div></div>
+<div><div class="code-block"><div class="code-header"><span>salida</span></div>
+<pre><code class="language-plaintext">ok  	zeldainterpreter
+ok  	zeldainterpreter/ast
+ok  	zeldainterpreter/evaluator
+ok  	zeldainterpreter/lexer
+ok  	zeldainterpreter/object
+ok  	zeldainterpreter/parser
+?   	zeldainterpreter/repl	[no test files]
+?   	zeldainterpreter/runner	[no test files]
+?   	zeldainterpreter/token	[no test files]</code></pre></div></div>
+            </div>
+            <div class="grid-2 correr-grid">
+<div class="card">
+<h3>Ejecutar un archivo</h3>
+<p>Los programas de ejemplo están en <code>programas/*.mk</code>.</p>
+<div class="code-block"><div class="code-header"><span>terminal</span></div>
+<pre><code class="language-bash">go run . programas/fibonacci.mk</code></pre></div>
+<div class="code-block"><div class="code-header"><span>salida</span></div>
+<pre><code class="language-plaintext">fibonacci(10) =
+55
+fibonacci(15) =
+610</code></pre></div>
+</div>
+<div class="card">
+<h3>Ejecutar código directo</h3>
+<p>Con <code>-e</code> se ejecuta el texto y se muestra el valor final.</p>
+<div class="code-block"><div class="code-header"><span>terminal</span></div>
+<pre><code class="language-bash">go run . -e &#x27;let doble = fn(x) { x * 2 }; doble(21)&#x27;</code></pre></div>
+<div class="code-block"><div class="code-header"><span>salida</span></div>
+<pre><code class="language-plaintext">42</code></pre></div>
+</div>
+<div class="card">
+<h3>Ver el AST</h3>
+<p>Cambia <code>-modo</code> para detenerte en cualquier fase: <code>tokens</code>, <code>ast</code>, <code>arbol</code> o <code>eval</code>.</p>
+<div class="code-block"><div class="code-header"><span>terminal</span></div>
+<pre><code class="language-bash">go run . -modo=arbol -e &#x27;let x = 1 + 2 * 3;&#x27;</code></pre></div>
+<div class="code-block"><div class="code-header"><span>salida</span></div>
+<pre><code class="language-plaintext">Program
+└── LetStatement
+    ├── nombre: Identifier x
+    └── valor: InfixExpression +
+        ├── izq: IntegerLiteral 1
+        └── der: InfixExpression *
+            ├── izq: IntegerLiteral 2
+            └── der: IntegerLiteral 3</code></pre></div>
+</div>
+<div class="card">
+<h3>Consola interactiva</h3>
+<p>Sin argumentos abre el REPL. Escribe <code>:ayuda</code> para ver sus comandos.</p>
+<div class="code-block"><div class="code-header"><span>terminal</span></div>
+<pre><code class="language-bash">go run .</code></pre></div>
+<div class="code-block"><div class="code-header"><span>consola interactiva</span></div>
+<pre><code class="language-plaintext">ZeldaInterpreter · intérprete del lenguaje Monkey
+Modo actual: eval. Escribe :ayuda para ver los comandos, :salir para terminar.
+&gt;&gt; let saludo = &quot;Hola, &quot; + &quot;Monkey&quot;;
+&gt;&gt; len(saludo)
+12
+&gt;&gt; :salir
+¡Hasta pronto!</code></pre></div>
+</div>
+</div>
+            
+        </section>
+        <!-- CORRER:FIN -->
+
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/go.min.js"></script>
+    <script src="assets/course.js"></script>
+    <script src="assets/presentation.js"></script>
+    <script src="assets/monkey.js"></script>
+    <script src="assets/simulator.js"></script>
+</body>
+</html>

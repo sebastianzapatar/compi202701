@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Semana 8: Strings, Built-ins, Arrays y Hashes (Cap. 4) | ZeldaInterpreter · Lenguajes y Compiladores 2027-1</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css">
+    <link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body data-week="8">
+    <a class="skip-link" href="#contenido">Saltar al contenido</a>
+
+    <aside class="sidebar">
+        <div class="logo">
+            <a href="../index.html">
+                <h1 class="brand"><span class="brand-logo" data-logo="56"></span><span class="brand-name">ZeldaInterpreter</span></h1><p class="logo-subtitle">Semana 08 · Capítulo 4</p>
+            </a>
+        </div>
+
+        <a href="../index.html" class="back-link"><span data-icon="home"></span>Portal del Curso</a>
+
+        <button type="button" class="present-btn" id="toggle-slides-btn" aria-pressed="false">
+            <span data-icon="presentation"></span>Modo Presentación <kbd>P</kbd>
+        </button>
+        <a class="pdf-btn" data-pdf-link href="#"><span data-icon="file-down"></span>Ejercicios de la semana (PDF)</a>
+
+        <nav>
+            <div class="nav-group-title">Contenido de la Clase</div>
+            <ul>
+                <li><a href="#portada" class="active">Portada y objetivos</a></li>
+                <li><a href="#receta">1. La receta para extender</a></li>
+                <li><a href="#strings">2. Strings</a></li>
+                <li><a href="#builtins">3. Funciones integradas</a></li>
+                <li><a href="#arrays-parse">4. Arrays: parsing e índices</a></li>
+                <li><a href="#arrays-eval">5. Arrays: evaluación y built-ins</a></li>
+                <li><a href="#hash-key">6. Hashes: el problema de la llave</a></li>
+                <li><a href="#hash-impl">7. Hashes: parsing y evaluación</a></li>
+                <li><a href="#finale">8. The Grand Finale</a></li>
+                <li><a href="#repl">9. Playground de Monkey</a></li>
+                <li><a href="#cierre">10. ¿Qué sigue?</a></li>
+                <li><a href="#correr">Córrelo en ZeldaInterpreter</a></li>
+                <li><a href="#simulador-zelda">Simulador ZeldaInterpreter</a></li>
+                <li><a href="#resumen">11. Ideas clave del curso</a></li>
+                <li><a href="#taller">12. Proyecto final</a></li>
+            </ul>
+            <div data-course-nav></div>
+        </nav>
+
+        <div class="sidebar-footer">
+            Semana 8 de 8 · Cap. 4 (pp. 152–201)
+        </div>
+    </aside>
+
+    <main class="content" id="contenido">
+
+        <!-- ==================== PORTADA ==================== -->
+        <header id="portada" class="hero slide">
+            <div class="hero-badge"><span data-icon="layers"></span>Semana 08 · Bloque II · Capítulo 4</div>
+            <h1>Extendiendo el Intérprete: <span class="gradient-text">Strings, Built-ins, Arrays y Hashes</span></h1>
+            <p>Ya tenemos un lenguaje Turing completo. Ahora lo hacemos <strong>útil</strong>: nuevos tipos de datos y funciones integradas. Cada extensión recorre <strong>todo el pipeline</strong>, lo que convierte esta semana en un repaso de todo el curso.</p>
+            <div class="hero-meta">
+                <span class="meta-pill"><span data-icon="book"></span>Libro: Cap. 4 (pp. 152–201)</span>
+                <span class="meta-pill"><span data-icon="folder"></span>Todos los paquetes: <code>token</code> → <code>evaluator</code></span>
+                <span class="meta-pill"><span data-icon="terminal"></span>Playground completo de Monkey</span>
+            </div>
+            <div class="objectives" aria-label="Objetivos de la clase">
+                <div class="objective"><span class="num">1</span><span>Aplicar la receta token → lexer → parser → objeto → evaluador.</span></div>
+                <div class="objective"><span class="num">2</span><span>Implementar strings, <code>len</code>, <code>first</code>, <code>last</code>, <code>rest</code>, <code>push</code> y <code>puts</code>.</span></div>
+                <div class="objective"><span class="num">3</span><span>Parsear y evaluar arrays e índices con precedencia <code>INDEX</code>.</span></div>
+                <div class="objective"><span class="num">4</span><span>Diseñar llaves de hash comparables por valor con <code>HashKey</code>.</span></div>
+            </div>
+        </header>
+
+        <!-- ==================== 1. RECETA ==================== -->
+        <section id="receta" class="section slide">
+            <h2>1. La receta para agregar una característica</h2>
+            <p>Cada nuevo tipo de dato del Cap. 4 sigue los mismos pasos. Si entiendes la receta, puedes extender Monkey con lo que quieras.</p>
+            <div class="pipeline">
+                <div class="pipeline-step">1. token<small>STRING, LBRACKET…</small></div>
+                <span class="pipeline-arrow">→</span>
+                <div class="pipeline-step">2. lexer<small>readString()</small></div>
+                <span class="pipeline-arrow">→</span>
+                <div class="pipeline-step">3. ast + parser<small>registerPrefix/Infix</small></div>
+                <span class="pipeline-arrow">→</span>
+                <div class="pipeline-step">4. object<small>String, Array, Hash</small></div>
+                <span class="pipeline-arrow">→</span>
+                <div class="pipeline-step active-step">5. evaluator<small>case en Eval</small></div>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Característica</th><th>Token</th><th>Nodo AST</th><th>Objeto</th><th>Evaluación</th></tr></thead>
+                    <tbody>
+                        <tr><td>Strings</td><td><code>STRING</code></td><td><code>StringLiteral</code></td><td><code>String</code></td><td>concatenación <code>+</code></td></tr>
+                        <tr><td>Built-ins</td><td>—</td><td>—</td><td><code>Builtin</code></td><td><code>evalIdentifier</code>, <code>applyFunction</code></td></tr>
+                        <tr><td>Arrays</td><td><code>LBRACKET</code>, <code>RBRACKET</code></td><td><code>ArrayLiteral</code>, <code>IndexExpression</code></td><td><code>Array</code></td><td><code>evalIndexExpression</code></td></tr>
+                        <tr><td>Hashes</td><td><code>LBRACE</code>, <code>COLON</code></td><td><code>HashLiteral</code></td><td><code>Hash</code>, <code>HashKey</code></td><td><code>evalHashLiteral</code></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ==================== 2. STRINGS ==================== -->
+        <section id="strings" class="section slide">
+            <h2>2. Strings: de punta a punta</h2>
+            <div class="grid-2">
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>lexer/lexer.go</span></div>
+<pre><code class="language-go">case '"':
+    tok.Type = token.STRING
+    tok.Literal = l.readString()
+
+func (l *Lexer) readString() string {
+    position := l.position + 1
+    for {
+        l.readChar()
+        if l.ch == '"' || l.ch == 0 {
+            break
+        }
+    }
+    return l.input[position:l.position]
+}</code></pre>
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header"><span>ast + parser</span></div>
+<pre><code class="language-go">type StringLiteral struct {
+    Token token.Token
+    Value string
+}
+
+// registerPrefix(token.STRING, p.parseStringLiteral)
+func (p *Parser) parseStringLiteral() ast.Expression {
+    return &amp;ast.StringLiteral{Token: p.curToken, Value: p.curToken.Literal}
+}</code></pre>
+                    </div>
+                </div>
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>object + evaluator</span></div>
+<pre><code class="language-go">const STRING_OBJ = "STRING"
+
+type String struct {
+    Value string
+}
+func (s *String) Type() ObjectType { return STRING_OBJ }
+func (s *String) Inspect() string  { return s.Value }
+
+// Eval
+case *ast.StringLiteral:
+    return &amp;object.String{Value: node.Value}
+
+// evalInfixExpression, antes de los casos == / !=
+case left.Type() == object.STRING_OBJ &amp;&amp; right.Type() == object.STRING_OBJ:
+    return evalStringInfixExpression(operator, left, right)
+
+func evalStringInfixExpression(operator string, left, right object.Object) object.Object {
+    if operator != "+" {
+        return newError("unknown operator: %s %s %s",
+            left.Type(), operator, right.Type())
+    }
+    leftVal := left.(*object.String).Value
+    rightVal := right.(*object.String).Value
+    return &amp;object.String{Value: leftVal + rightVal}
+}</code></pre>
+                    </div>
+                    <div class="warn-box">
+                        <strong>Para pensar:</strong> <code>"a" == "a"</code> produce un error en Monkey. ¿Por qué no basta con el caso <code>left == right</code> de la Semana 6? (Pista: dos <code>*object.String</code> distintos tienen punteros distintos.)
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 3. BUILTINS ==================== -->
+        <section id="builtins" class="section slide">
+            <h2>3. Funciones integradas (<em>built-ins</em>)</h2>
+            <p>Algunas cosas no se pueden escribir en Monkey mismo (¿cómo medirías un string sin ayuda?). Las funciones integradas son <strong>funciones Go expuestas a Monkey</strong>.</p>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>object/object.go + evaluator/builtins.go</span></div>
+<pre><code class="language-go">type BuiltinFunction func(args ...Object) Object
+
+type Builtin struct {
+    Fn BuiltinFunction
+}
+func (b *Builtin) Type() ObjectType { return BUILTIN_OBJ }
+func (b *Builtin) Inspect() string  { return "builtin function" }
+
+// evaluator/builtins.go
+var builtins = map[string]*object.Builtin{
+    "len": &amp;object.Builtin{
+        Fn: func(args ...object.Object) object.Object {
+            if len(args) != 1 {
+                return newError("wrong number of arguments. got=%d, want=1",
+                    len(args))
+            }
+            switch arg := args[0].(type) {
+            case *object.String:
+                return &amp;object.Integer{Value: int64(len(arg.Value))}
+            default:
+                return newError("argument to `len` not supported, got %s",
+                    args[0].Type())
+            }
+        },
+    },
+}</code></pre>
+                </div>
+                <div class="code-block">
+                    <div class="code-header"><span>evaluator/evaluator.go</span></div>
+<pre><code class="language-go">func evalIdentifier(node *ast.Identifier, env *object.Environment) object.Object {
+    if val, ok := env.Get(node.Value); ok {
+        return val
+    }
+    if builtin, ok := builtins[node.Value]; ok {
+        return builtin
+    }
+    return newError("identifier not found: " + node.Value)
+}
+
+func applyFunction(fn object.Object, args []object.Object) object.Object {
+    switch fn := fn.(type) {
+
+    case *object.Function:
+        extendedEnv := extendFunctionEnv(fn, args)
+        evaluated := Eval(fn.Body, extendedEnv)
+        return unwrapReturnValue(evaluated)
+
+    case *object.Builtin:
+        return fn.Fn(args...)
+
+    default:
+        return newError("not a function: %s", fn.Type())
+    }
+}</code></pre>
+                </div>
+            </div>
+            <div class="info-box">
+                <strong>Orden de búsqueda:</strong> primero el entorno, luego los built-ins. Consecuencia: un usuario puede <em>sombrear</em> <code>len</code> con <code>let len = fn(x) { 0 };</code>. ¿Es buena idea? Es una decisión de diseño del lenguaje.
+            </div>
+        </section>
+
+        <!-- ==================== 4. ARRAYS PARSE ==================== -->
+        <section id="arrays-parse" class="section slide">
+            <h2>4. Arrays: literales y expresiones de índice</h2>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>parser/parser.go</span></div>
+<pre><code class="language-go">// registerPrefix(token.LBRACKET, p.parseArrayLiteral)
+func (p *Parser) parseArrayLiteral() ast.Expression {
+    array := &amp;ast.ArrayLiteral{Token: p.curToken}
+    array.Elements = p.parseExpressionList(token.RBRACKET)
+    return array
+}
+
+// Generaliza parseCallArguments: sirve para ) y ]
+func (p *Parser) parseExpressionList(end token.TokenType) []ast.Expression {
+    list := []ast.Expression{}
+
+    if p.peekTokenIs(end) {
+        p.nextToken()
+        return list
+    }
+    p.nextToken()
+    list = append(list, p.parseExpression(LOWEST))
+
+    for p.peekTokenIs(token.COMMA) {
+        p.nextToken()
+        p.nextToken()
+        list = append(list, p.parseExpression(LOWEST))
+    }
+
+    if !p.expectPeek(end) {
+        return nil
+    }
+    return list
+}</code></pre>
+                </div>
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>parser/parser.go</span></div>
+<pre><code class="language-go">const (
+    _ int = iota
+    LOWEST
+    // [...]
+    CALL  // myFunction(X)
+    INDEX // array[index]
+)
+
+var precedences = map[token.TokenType]int{
+    // [...]
+    token.LPAREN:   CALL,
+    token.LBRACKET: INDEX,
+}
+
+// registerInfix(token.LBRACKET, p.parseIndexExpression)
+func (p *Parser) parseIndexExpression(left ast.Expression) ast.Expression {
+    exp := &amp;ast.IndexExpression{Token: p.curToken, Left: left}
+
+    p.nextToken()
+    exp.Index = p.parseExpression(LOWEST)
+
+    if !p.expectPeek(token.RBRACKET) {
+        return nil
+    }
+    return exp
+}</code></pre>
+                    </div>
+                    <div class="tip-box">
+                        <strong><code>[</code> tiene doble vida</strong>, igual que <code>(</code>: prefijo para literales <code>[1, 2]</code> e infijo para índices <code>arr[0]</code>. Con <code>INDEX</code> como la precedencia más alta, <code>a * [1, 2, 3, 4][b * c] * d</code> se parsea como <code>((a * ([1, 2, 3, 4][(b * c)])) * d)</code>.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 5. ARRAYS EVAL ==================== -->
+        <section id="arrays-eval" class="section slide">
+            <h2>5. Arrays: evaluación y funciones integradas</h2>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>evaluator/evaluator.go</span></div>
+<pre><code class="language-go">case *ast.ArrayLiteral:
+    elements := evalExpressions(node.Elements, env)
+    if len(elements) == 1 &amp;&amp; isError(elements[0]) {
+        return elements[0]
+    }
+    return &amp;object.Array{Elements: elements}
+
+func evalIndexExpression(left, index object.Object) object.Object {
+    switch {
+    case left.Type() == object.ARRAY_OBJ &amp;&amp; index.Type() == object.INTEGER_OBJ:
+        return evalArrayIndexExpression(left, index)
+    case left.Type() == object.HASH_OBJ:
+        return evalHashIndexExpression(left, index)
+    default:
+        return newError("index operator not supported: %s", left.Type())
+    }
+}
+
+func evalArrayIndexExpression(array, index object.Object) object.Object {
+    arrayObject := array.(*object.Array)
+    idx := index.(*object.Integer).Value
+    max := int64(len(arrayObject.Elements) - 1)
+
+    if idx &lt; 0 || idx &gt; max {
+        return NULL
+    }
+    return arrayObject.Elements[idx]
+}</code></pre>
+                </div>
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>evaluator/builtins.go — push</span></div>
+<pre><code class="language-go">"push": &amp;object.Builtin{
+    Fn: func(args ...object.Object) object.Object {
+        if len(args) != 2 {
+            return newError("wrong number of arguments. got=%d, want=2",
+                len(args))
+        }
+        if args[0].Type() != object.ARRAY_OBJ {
+            return newError("argument to `push` must be ARRAY, got %s",
+                args[0].Type())
+        }
+        arr := args[0].(*object.Array)
+        length := len(arr.Elements)
+
+        newElements := make([]object.Object, length+1, length+1)
+        copy(newElements, arr.Elements)
+        newElements[length] = args[1]
+
+        return &amp;object.Array{Elements: newElements}
+    },
+},</code></pre>
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead><tr><th>Built-in</th><th>Ejemplo</th><th>Resultado</th></tr></thead>
+                            <tbody>
+                                <tr><td><code>len</code></td><td><code>len([1, 2, 3])</code></td><td><code>3</code></td></tr>
+                                <tr><td><code>first</code></td><td><code>first([1, 2, 3])</code></td><td><code>1</code></td></tr>
+                                <tr><td><code>last</code></td><td><code>last([1, 2, 3])</code></td><td><code>3</code></td></tr>
+                                <tr><td><code>rest</code></td><td><code>rest([1, 2, 3])</code></td><td><code>[2, 3]</code> (nuevo array)</td></tr>
+                                <tr><td><code>push</code></td><td><code>push([1, 2], 3)</code></td><td><code>[1, 2, 3]</code> (nuevo array)</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="info-box">
+                        <strong>Arrays inmutables:</strong> <code>rest</code> y <code>push</code> <em>nunca</em> modifican el array original; devuelven uno nuevo. Esto facilita razonar sobre programas funcionales.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 6. HASH KEY ==================== -->
+        <section id="hash-key" class="section slide">
+            <h2>6. Hashes: el problema de la llave</h2>
+            <p>Queremos <code>{"name": "Monkey"}["name"]</code>. La tentación es usar <code>map[object.Object]object.Object</code> en Go… pero <strong>no funciona</strong>:</p>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>El problema</span></div>
+<pre><code class="language-go">name1 := &amp;object.String{Value: "name"}
+monkey := &amp;object.String{Value: "Monkey"}
+
+pairs := map[object.Object]object.Object{}
+pairs[name1] = monkey
+
+name2 := &amp;object.String{Value: "name"}
+pairs[name2] // =&gt; nil ¡Punteros distintos!</code></pre>
+                </div>
+                <div class="code-block">
+                    <div class="code-header"><span>La solución: object/object.go</span></div>
+<pre><code class="language-go">type HashKey struct {
+    Type  ObjectType
+    Value uint64
+}
+
+func (b *Boolean) HashKey() HashKey {
+    var value uint64
+    if b.Value {
+        value = 1
+    } else {
+        value = 0
+    }
+    return HashKey{Type: b.Type(), Value: value}
+}
+
+func (i *Integer) HashKey() HashKey {
+    return HashKey{Type: i.Type(), Value: uint64(i.Value)}
+}
+
+func (s *String) HashKey() HashKey {
+    h := fnv.New64a()
+    h.Write([]byte(s.Value))
+    return HashKey{Type: s.Type(), Value: h.Sum64()}
+}</code></pre>
+                </div>
+            </div>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>object/object.go</span></div>
+<pre><code class="language-go">type HashPair struct {
+    Key   Object
+    Value Object
+}
+
+type Hash struct {
+    Pairs map[HashKey]HashPair
+}
+
+type Hashable interface {
+    HashKey() HashKey
+}</code></pre>
+                </div>
+                <div class="card glass">
+                    <h3>¿Por qué funciona?</h3>
+                    <ul class="feature-list">
+                        <li><code>HashKey</code> es un <strong>struct de valores</strong>: Go lo compara campo a campo, no por puntero.</li>
+                        <li>Incluir <code>Type</code> evita que <code>1</code> y <code>true</code> choquen (ambos tendrían <code>Value: 1</code>).</li>
+                        <li><code>HashPair</code> guarda la llave original para poder imprimirla en <code>Inspect()</code>.</li>
+                        <li>Solo <code>Integer</code>, <code>Boolean</code> y <code>String</code> implementan <code>Hashable</code>.</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 7. HASH IMPL ==================== -->
+        <section id="hash-impl" class="section slide">
+            <h2>7. Hashes: parsing y evaluación</h2>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>parser/parser.go — registerPrefix(token.LBRACE, ...)</span></div>
+<pre><code class="language-go">func (p *Parser) parseHashLiteral() ast.Expression {
+    hash := &amp;ast.HashLiteral{Token: p.curToken}
+    hash.Pairs = make(map[ast.Expression]ast.Expression)
+
+    for !p.peekTokenIs(token.RBRACE) {
+        p.nextToken()
+        key := p.parseExpression(LOWEST)
+
+        if !p.expectPeek(token.COLON) {
+            return nil
+        }
+
+        p.nextToken()
+        value := p.parseExpression(LOWEST)
+
+        hash.Pairs[key] = value
+
+        if !p.peekTokenIs(token.RBRACE) &amp;&amp; !p.expectPeek(token.COMMA) {
+            return nil
+        }
+    }
+
+    if !p.expectPeek(token.RBRACE) {
+        return nil
+    }
+    return hash
+}</code></pre>
+                </div>
+                <div class="code-block">
+                    <div class="code-header"><span>evaluator/evaluator.go</span></div>
+<pre><code class="language-go">func evalHashLiteral(node *ast.HashLiteral, env *object.Environment) object.Object {
+    pairs := make(map[object.HashKey]object.HashPair)
+
+    for keyNode, valueNode := range node.Pairs {
+        key := Eval(keyNode, env)
+        if isError(key) {
+            return key
+        }
+        hashKey, ok := key.(object.Hashable)
+        if !ok {
+            return newError("unusable as hash key: %s", key.Type())
+        }
+        value := Eval(valueNode, env)
+        if isError(value) {
+            return value
+        }
+        hashed := hashKey.HashKey()
+        pairs[hashed] = object.HashPair{Key: key, Value: value}
+    }
+    return &amp;object.Hash{Pairs: pairs}
+}
+
+func evalHashIndexExpression(hash, index object.Object) object.Object {
+    hashObject := hash.(*object.Hash)
+
+    key, ok := index.(object.Hashable)
+    if !ok {
+        return newError("unusable as hash key: %s", index.Type())
+    }
+    pair, ok := hashObject.Pairs[key.HashKey()]
+    if !ok {
+        return NULL
+    }
+    return pair.Value
+}</code></pre>
+                </div>
+            </div>
+            <div class="info-box">
+                <strong>Llaves como expresiones:</strong> en <code>{"one": 10 - 9, "thr" + "ee": 6 / 2, 4: 4, true: 5}</code> las llaves se evalúan antes de usarse. La type assertion <code>key.(object.Hashable)</code> decide si el objeto puede ser llave.
+            </div>
+        </section>
+
+        <!-- ==================== 8. FINALE ==================== -->
+        <section id="finale" class="section slide">
+            <h2>8. The Grand Finale: <code>map</code> y <code>reduce</code> en Monkey</h2>
+            <p>Con lo que construimos podemos escribir funciones de orden superior <strong>en Monkey mismo</strong>, sin tocar Go:</p>
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>map.mk</span></div>
+<pre><code class="language-javascript">let map = fn(arr, f) {
+  let iter = fn(arr, accumulated) {
+    if (len(arr) == 0) {
+      accumulated
+    } else {
+      iter(rest(arr), push(accumulated, f(first(arr))));
+    }
+  };
+  iter(arr, []);
+};
+
+let a = [1, 2, 3, 4];
+let double = fn(x) { x * 2 };
+map(a, double);
+// =&gt; [2, 4, 6, 8]</code></pre>
+                </div>
+                <div class="code-block">
+                    <div class="code-header"><span>reduce.mk</span></div>
+<pre><code class="language-javascript">let reduce = fn(arr, initial, f) {
+  let iter = fn(arr, result) {
+    if (len(arr) == 0) {
+      result
+    } else {
+      iter(rest(arr), f(result, first(arr)));
+    }
+  };
+  iter(arr, initial);
+};
+
+let sum = fn(arr) {
+  reduce(arr, 0, fn(initial, el) { initial + el });
+};
+sum([1, 2, 3, 4, 5]);
+// =&gt; 15</code></pre>
+                </div>
+            </div>
+            <div class="tip-box">
+                <strong>Todo el curso en un programa:</strong> tokens (Sem 3), parsing de funciones y llamadas (Sem 4–5), condicionales y retornos (Sem 6), closures y recursión (Sem 7), arrays y built-ins (Sem 8).
+            </div>
+        </section>
+
+        <!-- ==================== 9. REPL ==================== -->
+        <section id="repl" class="section slide">
+            <h2>9. Playground completo de Monkey</h2>
+            <div class="playground">
+                <label for="repl-input" class="viz-label">Programa Monkey</label>
+                <textarea id="repl-input" class="playground-input" spellcheck="false" style="min-height:170px">let people = [{"name": "Alice", "age": 24}, {"name": "Anna", "age": 28}];
+let getName = fn(person) { person["name"]; };
+puts(getName(people[0]));
+puts("Hola, " + getName(people[1]) + "!");
+len(people);</textarea>
+                <div class="playground-actions">
+                    <button type="button" class="btn-pill primary" id="repl-run"><span data-icon="play"></span>Evaluar</button>
+                    <button type="button" class="btn-pill" data-repl="let map = fn(arr, f) {&#10;  let iter = fn(arr, accumulated) {&#10;    if (len(arr) == 0) { accumulated } else { iter(rest(arr), push(accumulated, f(first(arr)))); }&#10;  };&#10;  iter(arr, []);&#10;};&#10;map([1, 2, 3, 4], fn(x) { x * 2 });">map</button>
+                    <button type="button" class="btn-pill" data-repl="let reduce = fn(arr, initial, f) {&#10;  let iter = fn(arr, result) {&#10;    if (len(arr) == 0) { result } else { iter(rest(arr), f(result, first(arr))); }&#10;  };&#10;  iter(arr, initial);&#10;};&#10;let sum = fn(arr) { reduce(arr, 0, fn(initial, el) { initial + el }); };&#10;sum([1, 2, 3, 4, 5]);">reduce / sum</button>
+                    <button type="button" class="btn-pill" data-repl="let fibonacci = fn(x) {&#10;  if (x == 0) { 0 } else { if (x == 1) { return 1; } else { fibonacci(x - 1) + fibonacci(x - 2); } }&#10;};&#10;fibonacci(15);">fibonacci</button>
+                    <button type="button" class="btn-pill" data-repl="{&quot;one&quot;: 10 - 9, &quot;thr&quot; + &quot;ee&quot;: 6 / 2, 4: 4, true: 5}">Hash</button>
+                    <button type="button" class="btn-pill" data-repl="{&quot;name&quot;: &quot;Monkey&quot;}[fn(x) { x }];">Llave inválida</button>
+                </div>
+                <div class="viz-grid">
+                    <div>
+                        <div class="viz-label">Resultado (Inspect)</div>
+                        <div class="viz-output" id="repl-output" aria-live="polite"></div>
+                    </div>
+                    <div>
+                        <div class="viz-label">Salida de puts</div>
+                        <pre class="viz-panel" id="repl-puts" style="min-height:60px;font-size:.85rem;color:var(--text-soft)"></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 10. CIERRE ==================== -->
+        <section id="cierre" class="section slide">
+            <h2>10. ¿Qué sigue después de Monkey?</h2>
+            <div class="grid-3">
+                <div class="card card-primary">
+                    <h3 style="color: var(--primary);">The Lost Chapter</h3>
+                    <p>Capítulo gratuito del autor sobre un <strong>sistema de macros</strong> para Monkey: <code>quote</code>, <code>unquote</code> y expansión de macros sobre el AST.</p>
+                </div>
+                <div class="card card-accent">
+                    <h3 style="color: var(--accent);">Writing A Compiler In Go</h3>
+                    <p>La secuela: convierte Monkey en un <strong>compilador a bytecode</strong> con su propia máquina virtual. Mucho más rápido que el tree-walking.</p>
+                </div>
+                <div class="card card-success">
+                    <h3 style="color: var(--success);">Ideas para extender</h3>
+                    <ul class="feature-list">
+                        <li>Floats, <code>&lt;=</code>, <code>&gt;=</code>, <code>&amp;&amp;</code>, <code>||</code></li>
+                        <li>Ciclos <code>while</code>/<code>for</code></li>
+                        <li>Comentarios y números de línea en errores</li>
+                        <li>Asignación sin <code>let</code></li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- CORRER:INICIO -->
+        <!-- Generado por scripts/build_correr.py: no editar a mano. -->
+        <section id="correr" class="section slide">
+            <h2>Córrelo en ZeldaInterpreter</h2>
+            <p>El intérprete completo: strings, funciones integradas, arrays y hashes. Estos son los programas de <code>zeldainterpreter/programas/</code> y las otras formas de ejecutar código.</p>
+            
+            <div class="grid-2 correr-grid">
+<div><div class="code-block"><div class="code-header"><span>terminal · primero, las pruebas (deben salir en ok)</span></div>
+<pre><code class="language-bash">cd zeldainterpreter
+go test ./...</code></pre></div></div>
+<div><div class="code-block"><div class="code-header"><span>salida</span></div>
+<pre><code class="language-plaintext">ok  	zeldainterpreter
+ok  	zeldainterpreter/ast
+ok  	zeldainterpreter/evaluator
+ok  	zeldainterpreter/lexer
+ok  	zeldainterpreter/object
+ok  	zeldainterpreter/parser
+?   	zeldainterpreter/repl	[no test files]
+?   	zeldainterpreter/runner	[no test files]
+?   	zeldainterpreter/token	[no test files]</code></pre></div></div>
+            </div>
+            <div class="grid-2 correr-grid">
+<div class="card">
+<h3>Strings y concatenación</h3>
+<p><code>+</code> entre dos <code>STRING</code> lo resuelve <code>evalStringInfixExpression</code>.</p>
+<div class="code-block"><div class="code-header"><span>programas/hola.mk</span></div>
+<pre><code class="language-javascript">puts(&quot;¡Hola desde ZeldaInterpreter!&quot;);
+
+let nombre = &quot;estudiante&quot;;
+let saludo = &quot;Bienvenido, &quot; + nombre;
+puts(saludo);
+
+let curso = &quot;Lenguajes y Compiladores&quot;;
+puts(&quot;Curso: &quot; + curso);</code></pre></div>
+<div class="code-block"><div class="code-header"><span>terminal</span></div>
+<pre><code class="language-bash">go run . programas/hola.mk</code></pre></div>
+<div class="code-block"><div class="code-header"><span>salida</span></div>
+<pre><code class="language-plaintext">¡Hola desde ZeldaInterpreter!
+Bienvenido, estudiante
+Curso: Lenguajes y Compiladores</code></pre></div>
+</div>
+<div class="card">
+<h3>Arrays, hashes y built-ins</h3>
+<p>Indexación de hash con <code>HashKey</code>, de array con <code>[i]</code>, y las funciones <code>len</code>, <code>first</code> y <code>puts</code>.</p>
+<div class="code-block"><div class="code-header"><span>terminal</span></div>
+<pre><code class="language-bash">go run . -e &#x27;let p = {&quot;nombre&quot;: &quot;Zelda&quot;, &quot;notas&quot;: [4, 5, 3]}; puts(&quot;Hola, &quot; + p[&quot;nombre&quot;]); len(p[&quot;notas&quot;]) + first(p[&quot;notas&quot;])&#x27;</code></pre></div>
+<div class="code-block"><div class="code-header"><span>salida</span></div>
+<pre><code class="language-plaintext">Hola, Zelda
+7</code></pre></div>
+</div>
+<div class="card">
+<h3>The Grand Finale por la entrada estándar</h3>
+<p>Con <code>-</code> el programa se lee de la entrada estándar: sirve para encadenar con otros comandos.</p>
+<div class="code-block"><div class="code-header"><span>terminal</span></div>
+<pre><code class="language-bash">cat programas/map_reduce.mk | go run . -</code></pre></div>
+<div class="code-block"><div class="code-header"><span>salida</span></div>
+<pre><code class="language-plaintext">map(numeros, cuadrado) =
+[1, 4, 9, 16, 25]
+suma con reduce =
+15</code></pre></div>
+</div>
+<div class="card">
+<h3>Cargar un archivo en la consola</h3>
+<p><code>:cargar</code> ejecuta el archivo <strong>en la sesión actual</strong>: sus <code>map</code> y <code>reduce</code> quedan disponibles. El <code>null</code> es el valor de la última línea del archivo: <code>puts</code> devuelve <code>null</code>.</p>
+<div class="code-block"><div class="code-header"><span>terminal</span></div>
+<pre><code class="language-bash">go run .</code></pre></div>
+<div class="code-block"><div class="code-header"><span>consola interactiva</span></div>
+<pre><code class="language-plaintext">ZeldaInterpreter · intérprete del lenguaje Monkey
+Modo actual: eval. Escribe :ayuda para ver los comandos, :salir para terminar.
+&gt;&gt; :cargar programas/map_reduce.mk
+map(numeros, cuadrado) =
+[1, 4, 9, 16, 25]
+suma con reduce =
+15
+null
+&gt;&gt; map([1, 2, 3], fn(x) { x * 10 })
+[10, 20, 30]
+&gt;&gt; reduce([1, 2, 3], 1, fn(a, b) { a * b })
+6
+&gt;&gt; :salir
+¡Hasta pronto!</code></pre></div>
+</div>
+</div>
+            <div class="info-box"><strong>¿Y mi propio intérprete?</strong> Si construyes el tuyo siguiendo el libro, los mismos comandos funcionan sobre tu código a medida que avanzas. <code>zeldainterpreter/</code> es la versión de referencia completa para comparar resultados.</div>
+        </section>
+        <!-- CORRER:FIN -->
+
+
+        <!-- ==================== SIMULADOR ZELDAINTERPRETER ==================== -->
+        <section id="simulador-zelda" class="section slide">
+            <h2>Simulador ZeldaInterpreter</h2>
+            <p>El intérprete completo: strings, built-ins, arrays y hashes funcionan en las tres fases. Es exactamente lo que tu <strong>ZeldaInterpreter</strong> en Go debe hacer.</p>
+            <div data-simulator data-stage="eval" data-code="let p = {&quot;nombre&quot;: &quot;Zelda&quot;, &quot;notas&quot;: [4, 5, 3]};&#10;puts(&quot;Hola, &quot; + p[&quot;nombre&quot;]);&#10;len(p[&quot;notas&quot;]) + first(p[&quot;notas&quot;]);"></div>
+        </section>
+
+        <!-- ==================== 11. RESUMEN ==================== -->
+        <section id="resumen" class="section slide">
+            <h2>11. Ideas clave del curso</h2>
+            <div class="key-ideas">
+                <div class="key-idea"><h3>Lexer</h3><p>Caracteres → tokens con dos punteros y un <code>peekChar</code>.</p></div>
+                <div class="key-idea"><h3>Parser</h3><p>Tokens → AST con descenso recursivo + Pratt para expresiones.</p></div>
+                <div class="key-idea"><h3>Evaluador</h3><p>AST → objetos con un <code>type switch</code> recursivo.</p></div>
+                <div class="key-idea"><h3>Entornos</h3><p>Mapas encadenados que dan alcance léxico y closures.</p></div>
+                <div class="key-idea"><h3>Extensión</h3><p>Cada característica nueva recorre token → lexer → parser → objeto → eval.</p></div>
+                <div class="key-idea"><h3>TDD</h3><p>Cada línea del intérprete fue guiada por una prueba que primero falló.</p></div>
+            </div>
+        </section>
+
+        <!-- ==================== 12. TALLER ==================== -->
+        <section id="taller" class="section slide">
+            <h2>12. Taller y Proyecto Final</h2>
+            <div class="card glass">
+                <h3><span data-icon="wrench"></span>Entregable: intérprete Monkey completo (Cap. 4)</h3>
+                <ol class="steps">
+                    <li>Agrega strings con concatenación y las pruebas <code>TestStringLiteral</code> y <code>TestStringConcatenation</code>.</li>
+                    <li>Implementa <code>len</code>, <code>first</code>, <code>last</code>, <code>rest</code>, <code>push</code> y <code>puts</code> en <code>evaluator/builtins.go</code>.</li>
+                    <li>Agrega arrays, índices, hashes y <code>HashKey</code> con todas sus pruebas.</li>
+                    <li>Ejecuta <code>map</code>, <code>reduce</code> y <code>fibonacci</code> en tu REPL.</li>
+                    <li><strong>Proyecto final:</strong> elige una extensión del lenguaje (ver la guía de ejercicios), impleméntala de punta a punta con pruebas y preséntala en 5 minutos.</li>
+                </ol>
+            </div>
+
+            <div class="exercise-cta">
+                <div>
+                    <h3>Guía de ejercicios · Semana 8 + Proyecto final</h3>
+                    <p>Strings, built-ins, arrays, hashes, programas en Monkey y el enunciado del proyecto final con rúbrica.</p>
+                </div>
+                <a class="btn-download" data-pdf-link href="#"><span data-icon="file-down"></span>Descargar PDF</a>
+            </div>
+
+            <div class="tip-box">
+                <strong>¡Felicitaciones!</strong> Escribiste un lenguaje de programación completo desde cero, sin librerías externas. Ningún intérprete volverá a ser una caja negra.
+            </div>
+        </section>
+
+        <nav class="class-footer-nav" data-course-footer aria-label="Navegación entre clases"></nav>
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/go.min.js"></script>
+    <script src="../assets/course.js"></script>
+    <script src="../assets/presentation.js"></script>
+    <script src="../assets/simulator.js"></script>
+    <script src="../assets/monkey.js"></script>
+    <script src="../assets/repl-widget.js"></script>
+</body>
+</html>

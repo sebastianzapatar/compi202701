@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Semana 05 · Pratt Parsing | Guía de ejercicios</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="worksheet.css">
+</head>
+<body class="student">
+
+<header class="sheet-header">
+  <div class="brand">
+    <span class="course">ZeldaInterpreter · Lenguajes y Compiladores · 2027-1</span>
+    <span class="book">Libro guía: <em>Writing An Interpreter In Go</em> — Thorsten Ball</span>
+  </div>
+  <div class="title-row">
+    <div>
+      <div class="kicker">Guía de ejercicios · Semana 05 de 08</div>
+      <h1>Análisis Sintáctico II: Pratt Parsing</h1>
+      <div class="ref">Libro: Capítulo 2.6 – 2.9 (pp. 46–102) · <code>parseExpression</code>, precedencias, <code>if</code>, <code>fn</code>, llamadas</div>
+    </div>
+    <div class="week-badge" aria-hidden="true">05</div>
+  </div>
+</header>
+
+<div class="student-fields">
+  <div class="field"><label>Nombre</label><span></span></div>
+  <div class="field"><label>Código</label><span></span></div>
+  <div class="field small"><label>Fecha</label><span></span></div>
+  <div class="field small"><label>Nota</label><span></span></div>
+</div>
+
+<div class="intro">
+  <div class="goals">
+    <h2>Al terminar esta guía podrás…</h2>
+    <ul><li>Predecir el <code>String()</code> de cualquier expresión según las precedencias de Monkey.</li><li>Trazar las llamadas recursivas de <code>parseExpression</code>.</li><li>Extender el parser con nuevos operadores y asociatividad.</li></ul>
+  </div>
+  <div class="instructions">
+    <h2>Instrucciones</h2>
+    <ul>
+      <li>Partes A y B: a mano, <strong>sin computador</strong>. Razona con el código del libro.</li>
+      <li>Parte C: entrega en tu repositorio <code>monkey</code>; <code>go test ./...</code> debe pasar.</li>
+      <li>Puntaje total: <strong>100 pts</strong> (+ reto opcional).</li>
+      <li>Clase de referencia: <code>clases/semana-05-pratt-parsing.html</code></li>
+    </ul>
+  </div>
+</div>
+
+<section class="part pa"><h2><span>Parte A · Conceptos</span><span class="part-pts">25 pts</span></h2><p class="part-desc">Responde con tus palabras. Se valora la justificación, no solo la respuesta.</p><div class="item"><div class="item-head"><span class="qnum">1</span><div class="qtext">¿Qué tokens de Monkey tienen <strong>tanto</strong> función prefix como infix? Da un ejemplo de cada uso. <span class="pts">(5 pts)</span></div></div><div class="item-body"><div class="lines" style="--n:3" aria-hidden="true"></div></div></div><div class="item"><div class="item-head"><span class="qnum">2</span><div class="qtext">¿Por qué <code>parseExpressionStatement</code> llama a <code>parseExpression(LOWEST)</code>? <span class="pts">(4 pts)</span></div></div><div class="item-body"><div class="lines" style="--n:2" aria-hidden="true"></div></div></div><div class="item"><div class="item-head"><span class="qnum">3</span><div class="qtext">En <code>parseInfixExpression</code>, ¿qué cambiaría si en lugar de <code>p.parseExpression(precedence)</code> usáramos <code>p.parseExpression(precedence - 1)</code>? Usa <code>1 + 2 + 3</code> como ejemplo. <span class="pts">(6 pts)</span></div></div><div class="item-body"><div class="lines" style="--n:3" aria-hidden="true"></div></div></div><div class="item"><div class="item-head"><span class="qnum">4</span><div class="qtext">¿Por qué una expresión agrupada <code>( … )</code> no genera un nodo propio en el AST? <span class="pts">(4 pts)</span></div></div><div class="item-body"><div class="lines" style="--n:2" aria-hidden="true"></div></div></div><div class="item"><div class="item-head"><span class="qnum">5</span><div class="qtext">¿Qué pasaría si olvidamos agregar <code>token.LPAREN: CALL</code> a la tabla <code>precedences</code>? <span class="pts">(6 pts)</span></div></div><div class="item-body"><div class="lines" style="--n:3" aria-hidden="true"></div></div></div></section><section class="part pb"><h2><span>Parte B · Trazas a mano</span><span class="part-pts">35 pts</span></h2><p class="part-desc">Resuelve en papel, sin ejecutar código. Muestra el razonamiento.</p><div class="item"><div class="item-head"><span class="qnum">6</span><div class="qtext">Escribe el <code>program.String()</code> de cada entrada: <span class="pts">(14 pts)</span></div></div><div class="item-body"><table class="fill-table"><thead><tr><th>Entrada</th><th>String()</th></tr></thead><tbody><tr><td><code>-a * b</code></td><td class="fill"></td></tr><tr><td><code>!-a</code></td><td class="fill"></td></tr><tr><td><code>a + b - c</code></td><td class="fill"></td></tr><tr><td><code>a + b * c + d / e - f</code></td><td class="fill"></td></tr><tr><td><code>5 &lt; 4 != 3 &gt; 4</code></td><td class="fill"></td></tr><tr><td><code>3 + 4 * 5 == 3 * 1 + 4 * 5</code></td><td class="fill"></td></tr><tr><td><code>-(5 + 5)</code></td><td class="fill"></td></tr><tr><td><code>a + add(b * c) + d</code></td><td class="fill"></td></tr><tr><td><code>add(a + b + c * d / f + g)</code></td><td class="fill"></td></tr></tbody></table></div></div><div class="item"><div class="item-head"><span class="qnum">7</span><div class="qtext">Traza <code>parseExpression</code> para <code>a * b + c</code>. Indica cada llamada (con su precedencia), la decisión del bucle y el valor retornado. <span class="pts">(9 pts)</span></div></div><div class="item-body"><table class="fill-table"><thead><tr><th>#</th><th>Llamada / paso</th><th>Decisión</th><th>Retorna</th></tr></thead><tbody><tr><td>1</td><td class="fill"></td><td class="fill"></td><td class="fill"></td></tr><tr><td>2</td><td class="fill"></td><td class="fill"></td><td class="fill"></td></tr><tr><td>3</td><td class="fill"></td><td class="fill"></td><td class="fill"></td></tr><tr><td>4</td><td class="fill"></td><td class="fill"></td><td class="fill"></td></tr><tr><td>5</td><td class="fill"></td><td class="fill"></td><td class="fill"></td></tr></tbody></table></div></div><div class="item"><div class="item-head"><span class="qnum">8</span><div class="qtext">Dibuja el AST de: <code>if (x &lt; y) { x } else { y }</code> y de <code>fn(x, y) { x + y; }(2, 3)</code>. <span class="pts">(6 pts)</span></div></div><div class="item-body"><div class="draw" style="height:55mm"><span>Espacio para dibujar</span></div></div></div><div class="item"><div class="item-head"><span class="qnum">9</span><div class="qtext">Escribe el <strong>primer</strong> error que reporta el parser completo del Cap. 2: <span class="pts">(6 pts)</span></div></div><div class="item-body"><table class="fill-table"><thead><tr><th>Entrada</th><th>Primer error</th></tr></thead><tbody><tr><td><code>5 + ;</code></td><td class="fill"></td></tr><tr><td><code>(1 + 2</code></td><td class="fill"></td></tr><tr><td><code>fn(x y) {}</code></td><td class="fill"></td></tr></tbody></table></div></div></section><section class="part pc"><h2><span>Parte C · Programación en Go</span><span class="part-pts">40 pts</span></h2><p class="part-desc">Implementa en tu repositorio. Cada función debe tener su prueba <em>table-driven</em>.</p><div class="problem"><div class="problem-head"><span class="qnum">10</span><h3>Operador módulo <code>%</code></h3><span class="pts">12 pts</span></div><div class="problem-body"><p>Agrega el token <code>PERCENT</code>, regístralo como infijo con precedencia <code>PRODUCT</code> y prueba: <code>a % b * c</code> → <code>((a % b) * c)</code>; <code>a + b % c</code> → <code>(a + (b % c))</code>.</p></div></div><div class="problem"><div class="problem-head"><span class="qnum">11</span><h3>Potencia <code>**</code> asociativa a la derecha</h3><span class="pts">16 pts</span></div><div class="problem-body"><p>Agrega <code>**</code> (token <code>POWER</code>, reconocido con <code>peekChar</code>) con una nueva precedencia <code>POWER</code> entre <code>PRODUCT</code> y <code>PREFIX</code>, <strong>asociativa a la derecha</strong>. Casos esperados:</p><div class="code"><pre>{&quot;2 ** 3 ** 2&quot;, &quot;(2 ** (3 ** 2))&quot;},
+{&quot;2 * 3 ** 2&quot;,  &quot;(2 * (3 ** 2))&quot;},
+{&quot;-2 ** 2&quot;,     &quot;((-2) ** 2)&quot;},</pre></div></div></div><div class="problem"><div class="problem-head"><span class="qnum">12</span><h3>Traza del parser</h3><span class="pts">12 pts</span></div><div class="problem-body"><p>Implementa <code>parser_tracing.go</code> (como en el libro) con <code>trace(msg string) string</code> y <code>untrace(msg string)</code> que impriman <code>BEGIN</code>/<code>END</code> con sangría, y úsalo en <code>parseExpression</code>, <code>parsePrefixExpression</code> e <code>parseInfixExpression</code>. Entrega la salida para <code>-1 * 2 + 3</code>.</p></div></div></section><section class="reto"><h2><span>Reto opcional · Operadores lógicos <code>&amp;&amp;</code> y <code>||</code></span><span class="part-pts">+10 pts</span></h2><p>Agrega <code>&amp;&amp;</code> y <code>||</code> con precedencias <code>OR &lt; AND &lt; EQUALS</code>. Ej.: <code>a == b || c &amp;&amp; d</code> → <code>((a == b) || (c &amp;&amp; d))</code>. (La evaluación con cortocircuito se puede hacer en la Semana 6.)</p></section>
+
+<section class="rubric">
+  <h2><span>Rúbrica de evaluación</span></h2>
+  <table>
+    <thead><tr><th>Criterio</th><th>Descripción</th><th class="num">Pts</th></tr></thead>
+    <tbody><tr><td>Parte A</td><td>Respuestas correctas, con justificación en palabras propias (no copia literal del libro).</td><td class='num'>25</td></tr><tr><td>Parte B</td><td>Trazas completas y correctas; se muestra el razonamiento paso a paso.</td><td class='num'>35</td></tr><tr><td>Parte C · Funcionalidad</td><td>El código compila y hace lo pedido, incluidos los casos borde.</td><td class='num'>20</td></tr><tr><td>Parte C · Pruebas</td><td>Pruebas <em>table-driven</em> que cubren casos normales y de error; <code>go test ./...</code> en verde.</td><td class='num'>15</td></tr><tr><td>Parte C · Calidad</td><td>Código formateado con <code>gofmt</code>, nombres claros, sin código muerto.</td><td class='num'>5</td></tr><tr><td>Reto (opcional)</td><td>Funciona, tiene pruebas y se explica su diseño en el README.</td><td class='num'>+10</td></tr></tbody>
+  </table>
+</section>
+
+<footer class="sheet-footer">ZeldaInterpreter · Lenguajes y Compiladores 2027-1 · Semana 05 · Pratt Parsing</footer>
+</body>
+</html>

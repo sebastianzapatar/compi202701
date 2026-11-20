@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Semana 3: Análisis Léxico (Cap. 1) | ZeldaInterpreter · Lenguajes y Compiladores 2027-1</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css">
+    <link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body data-week="3">
+    <a class="skip-link" href="#contenido">Saltar al contenido</a>
+
+    <aside class="sidebar">
+        <div class="logo">
+            <a href="../index.html">
+                <h1 class="brand"><span class="brand-logo" data-logo="56"></span><span class="brand-name">ZeldaInterpreter</span></h1><p class="logo-subtitle">Semana 03 · Capítulo 1</p>
+            </a>
+        </div>
+
+        <a href="../index.html" class="back-link"><span data-icon="home"></span>Portal del Curso</a>
+
+        <button type="button" class="present-btn" id="toggle-slides-btn" aria-pressed="false">
+            <span data-icon="presentation"></span>Modo Presentación <kbd>P</kbd>
+        </button>
+        <a class="pdf-btn" data-pdf-link href="#"><span data-icon="file-down"></span>Ejercicios de la semana (PDF)</a>
+
+        <nav>
+            <div class="nav-group-title">Contenido de la Clase</div>
+            <ul>
+                <li><a href="#portada" class="active">Portada</a></li>
+                <li><a href="#que-es-interprete">1. Intérprete vs Compilador</a></li>
+                <li><a href="#analisis-lexico">2. ¿Qué es el Análisis Léxico?</a></li>
+                <li><a href="#tokens">3. Definiendo los Tokens</a></li>
+                <li><a href="#arquitectura-lexer">4. Arquitectura del Lexer</a></li>
+                <li><a href="#next-token">5. NextToken() e Identificadores</a></li>
+                <li><a href="#dos-caracteres">6. Lookahead: == y != con peekChar()</a></li>
+                <li><a href="#testing-lexer">7. Pruebas del Lexer (TDD)</a></li>
+                <li><a href="#repl">8. Primer REPL Interactivo</a></li>
+                <li><a href="#simulador">9. Simulador de Lexer en Vivo</a></li>
+                <li><a href="#correr">Córrelo en ZeldaInterpreter</a></li>
+                <li><a href="#simulador-zelda">Simulador ZeldaInterpreter</a></li>
+                <li><a href="#taller">10. Taller de la Semana 3</a></li>
+            </ul>
+            <div data-course-nav></div>
+        </nav>
+
+        <div class="sidebar-footer">
+            Semana 3 de 8 · Cap. 1 (pp. 5–27)
+        </div>
+    </aside>
+
+    <main class="content" id="contenido">
+
+        <!-- ==================== SLIDE 1: PORTADA ==================== -->
+        <header id="portada" class="hero slide">
+            <div class="hero-badge">Semana 03 · Bloque II · Capítulo 1 del Libro</div>
+            <h1>Análisis Léxico: <span class="gradient-text">Tokens, Lexer y REPL</span></h1>
+            <p>Comenzamos oficialmente la construcción del intérprete de <strong>Monkey</strong>. Hoy transformaremos texto plano en una secuencia estructurada de tokens y pondremos a correr nuestro primer REPL interactivo.</p>
+            <div class="hero-meta">
+                <span class="meta-pill"><span data-icon="book"></span>Libro: Intro + Cap. 1 (pp. 5–27)</span>
+                <span class="meta-pill"><span data-icon="folder"></span>Paquetes: <code>token</code>, <code>lexer</code>, <code>repl</code>, <code>main.go</code></span>
+                <span class="meta-pill"><span data-icon="flask"></span>Incluye simulador interactivo en vivo</span>
+            </div>
+        </header>
+
+        <!-- ==================== SLIDE 2: INTÉRPRETE VS COMPILADOR ==================== -->
+        <section id="que-es-interprete" class="section slide">
+            <h2>1. ¿Qué es un Intérprete? (Tipos y Pipeline)</h2>
+            <p>Un intérprete toma código fuente y lo evalúa directamente sin producir un ejecutable binario independiente. Pero no todos los intérpretes funcionan igual:</p>
+
+            <div class="grid-3">
+                <div class="card card-primary">
+                    <h3 style="color: var(--primary);">Tree-Walking (Nuestro enfoque)</h3>
+                    <p>Convierte el código en tokens, construye un <strong>AST</strong> y camina recursivamente por el árbol evaluando cada nodo.</p>
+                    <p style="font-size: 0.85rem;"><span data-icon="check"></span>Claro, didáctico y fácil de extender.</p>
+                </div>
+                <div class="card card-accent">
+                    <h3 style="color: var(--accent);">Bytecode VM</h3>
+                    <p>Compila el AST a instrucciones compactas (<em>bytecode</em>) que ejecuta una Máquina Virtual. Ej: Python (CPython), Lua, Ruby.</p>
+                    <p style="font-size: 0.85rem;"><span data-icon="zap"></span>Mucho más rápido en ejecución.</p>
+                </div>
+                <div class="card card-warning">
+                    <h3 style="color: var(--warning);">JIT (Just-In-Time)</h3>
+                    <p>Traduce partes calientes del código a <strong>código máquina nativo</strong> en tiempo de ejecución. Ej: V8 (JS), JVM, PyPy.</p>
+                    <p style="font-size: 0.85rem;"><span data-icon="zap"></span>Rendimiento cercano a C.</p>
+                </div>
+            </div>
+
+            <div class="pipeline">
+                <div class="pipeline-step">Código Fuente<small>"let x = 5 + 5;"</small></div>
+                <span class="pipeline-arrow">→</span>
+                <div class="pipeline-step active-step">Lexer (HOY)<small>Cap. 1 · Sem 3</small></div>
+                <span class="pipeline-arrow">→</span>
+                <div class="pipeline-step">Parser → AST<small>Cap. 2 · Sem 4–5</small></div>
+                <span class="pipeline-arrow">→</span>
+                <div class="pipeline-step">Evaluador<small>Cap. 3–4 · Sem 6–8</small></div>
+            </div>
+        </section>
+
+        <!-- ==================== SLIDE 3: ANÁLISIS LÉXICO ==================== -->
+        <section id="analisis-lexico" class="section slide">
+            <h2>2. ¿Qué hace exactamente el Análisis Léxico?</h2>
+            <p>Trabajar directamente con texto plano es incómodo y propenso a errores. El <strong>Lexer</strong> (también llamado <em>scanner</em> o <em>tokenizer</em>) realiza la <strong>primera transformación</strong>: agrupa caracteres en piezas atómicas llamadas <strong>Tokens</strong>.</p>
+
+            <div class="grid-2">
+                <div class="card">
+                    <h3><span data-icon="arrow-right"></span>Entrada: Cadena de caracteres</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span>Código fuente Monkey</span></div>
+<pre><code class="language-javascript">let x = 5 + 5;</code></pre>
+                    </div>
+                    <p style="font-size: 0.9rem;">Para la computadora esto es solo una secuencia de bytes: <code>'l'</code>, <code>'e'</code>, <code>'t'</code>, <code>' '</code>, <code>'x'</code>, <code>' '</code>, <code>'='</code>, ...</p>
+                </div>
+
+                <div class="card">
+                    <h3><span data-icon="arrow-right"></span>Salida: Flujo de Tokens</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span>Secuencia de token.Token</span></div>
+<pre><code class="language-go">{Type: LET,       Literal: "let"}
+{Type: IDENT,     Literal: "x"}
+{Type: ASSIGN,    Literal: "="}
+{Type: INT,       Literal: "5"}
+{Type: PLUS,      Literal: "+"}
+{Type: INT,       Literal: "5"}
+{Type: SEMICOLON, Literal: ";"}
+{Type: EOF,       Literal: ""}</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="warn-box">
+                <strong>Responsabilidad estricta del Lexer:</strong> El Lexer <strong>NO verifica si el código tiene sentido</strong> (si falta un <code>;</code> o si alguien escribió <code>!-/*5;</code>). Su único trabajo es producir tokens válidos o <code>ILLEGAL</code> si encuentra un símbolo desconocido. La gramática le corresponde al Parser.
+            </div>
+        </section>
+
+        <!-- ==================== SLIDE 4: TOKENS ==================== -->
+        <section id="tokens" class="section slide">
+            <h2>3. Definiendo los Tokens (<code>token/token.go</code>)</h2>
+            <p>Cada <code>Token</code> tiene dos campos: un <strong><code>Type</code></strong> (para categorizarlo) y un <strong><code>Literal</code></strong> (el texto original, para no perder si un <code>INT</code> era <code>5</code> o <code>10</code>).</p>
+
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>token/token.go</span></div>
+<pre><code class="language-go">package token
+
+type TokenType string
+
+type Token struct {
+    Type    TokenType
+    Literal string
+}
+
+const (
+    ILLEGAL = "ILLEGAL"
+    EOF     = "EOF"
+
+    // Identificadores y literales
+    IDENT = "IDENT" // add, foobar, x, y...
+    INT   = "INT"   // 1343456
+
+    // Operadores
+    ASSIGN   = "="
+    PLUS     = "+"
+    MINUS    = "-"
+    BANG     = "!"
+    ASTERISK = "*"
+    SLASH    = "/"
+    LT       = "&lt;"
+    GT       = "&gt;"
+    EQ       = "=="
+    NOT_EQ   = "!="
+
+    // Delimitadores
+    COMMA     = ","
+    SEMICOLON = ";"
+    LPAREN    = "("
+    RPAREN    = ")"
+    LBRACE    = "{"
+    RBRACE    = "}"
+
+    // Palabras reservadas (Keywords)
+    FUNCTION = "FUNCTION"
+    LET      = "LET"
+    TRUE     = "TRUE"
+    FALSE    = "FALSE"
+    IF       = "IF"
+    ELSE     = "ELSE"
+    RETURN   = "RETURN"
+)</code></pre>
+                </div>
+
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>token/token.go · LookupIdent</span></div>
+<pre><code class="language-go">var keywords = map[string]TokenType{
+    "fn":     FUNCTION,
+    "let":    LET,
+    "true":   TRUE,
+    "false":  FALSE,
+    "if":     IF,
+    "else":   ELSE,
+    "return": RETURN,
+}
+
+func LookupIdent(ident string) TokenType {
+    if tok, ok := keywords[ident]; ok {
+        return tok
+    }
+    return IDENT
+}</code></pre>
+                    </div>
+
+                    <div class="card card-primary">
+                        <h3>¿Por qué <code>TokenType</code> es <code>string</code>?</h3>
+                        <p>Usar <code>int</code> o <code>byte</code> sería ligeramente más rápido, pero usar <code>string</code> hace que depurar y leer fallos de tests sea inmediato sin tablas de traducción.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== SLIDE 5: ARQUITECTURA DEL LEXER ==================== -->
+        <section id="arquitectura-lexer" class="section slide">
+            <h2>4. Arquitectura Interna del Lexer (Doble Puntero)</h2>
+            <p>El Lexer mantiene <strong>4 campos</strong> para recorrer el string <code>input</code> de izquierda a derecha sin perder nunca la capacidad de "espiar" el carácter siguiente:</p>
+
+            <div class="char-tape">
+                <div class="char-cell"><span class="idx">0</span><span class="val">l</span></div>
+                <div class="char-cell"><span class="idx">1</span><span class="val">e</span></div>
+                <div class="char-cell"><span class="idx">2</span><span class="val">t</span></div>
+                <div class="char-cell"><span class="idx">3</span><span class="val">␣</span></div>
+                <div class="char-cell is-pos"><span class="idx">4</span><span class="val">x</span><span class="ptr-tag">position (ch='x')</span></div>
+                <div class="char-cell is-read"><span class="idx">5</span><span class="val">␣</span><span class="ptr-tag">readPosition</span></div>
+                <div class="char-cell"><span class="idx">6</span><span class="val">=</span></div>
+                <div class="char-cell"><span class="idx">7</span><span class="val">␣</span></div>
+                <div class="char-cell"><span class="idx">8</span><span class="val">5</span></div>
+                <div class="char-cell"><span class="idx">9</span><span class="val">;</span></div>
+            </div>
+
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>lexer/lexer.go · Estructura y readChar</span></div>
+<pre><code class="language-go">package lexer
+
+import "monkey/token"
+
+type Lexer struct {
+    input        string
+    position     int  // posición actual (apunta a ch)
+    readPosition int  // siguiente posición a leer
+    ch           byte // carácter actual bajo examen
+}
+
+func New(input string) *Lexer {
+    l := &Lexer{input: input}
+    l.readChar() // inicializa ch, position y readPosition
+    return l
+}
+
+func (l *Lexer) readChar() {
+    if l.readPosition &gt;= len(l.input) {
+        l.ch = 0 // código ASCII NUL -&gt; fin de entrada (EOF)
+    } else {
+        l.ch = l.input[l.readPosition]
+    }
+    l.position = l.readPosition
+    l.readPosition += 1
+}</code></pre>
+                </div>
+
+                <div class="card glass">
+                    <h3>¿Por qué necesitamos DOS índices?</h3>
+                    <ul class="feature-list">
+                        <li><strong><code>position</code></strong> señala el byte actual almacenado en <code>ch</code> (útil como inicio al hacer slicing <code>l.input[pos:l.position]</code>).</li>
+                        <li><strong><code>readPosition</code></strong> siempre está 1 paso adelante, listo para leer el siguiente carácter o espiarlo con <code>peekChar()</code>.</li>
+                        <li>Cuando llegamos al final del string, <code>l.ch = 0</code> (ASCII <code>NUL</code>), lo que dispara limpiamente <code>token.EOF</code>.</li>
+                    </ul>
+                    <div class="info-box" style="margin-bottom: 0;">
+                        <strong>Nota sobre Unicode:</strong> Monkey usa <code>byte</code> (ASCII) por simplicidad pedagógica. Soportar UTF-8 completo requeriría usar <code>rune</code> y leer anchos variables.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== SLIDE 6: NEXTTOKEN E IDENTIFICADORES ==================== -->
+        <section id="next-token" class="section slide">
+            <h2>5. <code>NextToken()</code>, Espacios, Palabras y Números</h2>
+            <p>Cada vez que el Parser necesita el siguiente token, llama a <code>l.NextToken()</code>. Primero ignoramos espacios en blanco y luego examinamos <code>l.ch</code> con un <code>switch</code>:</p>
+
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>lexer/lexer.go · NextToken</span></div>
+<pre><code class="language-go">func (l *Lexer) NextToken() token.Token {
+    var tok token.Token
+
+    l.skipWhitespace()
+
+    switch l.ch {
+    case '+':
+        tok = newToken(token.PLUS, l.ch)
+    case '-':
+        tok = newToken(token.MINUS, l.ch)
+    case '/':
+        tok = newToken(token.SLASH, l.ch)
+    case '*':
+        tok = newToken(token.ASTERISK, l.ch)
+    case '&lt;':
+        tok = newToken(token.LT, l.ch)
+    case '&gt;':
+        tok = newToken(token.GT, l.ch)
+    case ';':
+        tok = newToken(token.SEMICOLON, l.ch)
+    case ',':
+        tok = newToken(token.COMMA, l.ch)
+    case '(':
+        tok = newToken(token.LPAREN, l.ch)
+    case ')':
+        tok = newToken(token.RPAREN, l.ch)
+    case '{':
+        tok = newToken(token.LBRACE, l.ch)
+    case '}':
+        tok = newToken(token.RBRACE, l.ch)
+    case 0:
+        tok.Literal = ""
+        tok.Type = token.EOF
+    default:
+        if isLetter(l.ch) {
+            tok.Literal = l.readIdentifier()
+            tok.Type = token.LookupIdent(tok.Literal)
+            return tok // ¡RETURN TEMPRANO!
+        } else if isDigit(l.ch) {
+            tok.Type = token.INT
+            tok.Literal = l.readNumber()
+            return tok // ¡RETURN TEMPRANO!
+        } else {
+            tok = newToken(token.ILLEGAL, l.ch)
+        }
+    }
+
+    l.readChar()
+    return tok
+}</code></pre>
+                </div>
+
+                <div>
+                    <div class="code-block">
+                        <div class="code-header"><span>Helpers de lectura</span></div>
+<pre><code class="language-go">func (l *Lexer) skipWhitespace() {
+    for l.ch == ' ' || l.ch == '\t' ||
+        l.ch == '\n' || l.ch == '\r' {
+        l.readChar()
+    }
+}
+
+func (l *Lexer) readIdentifier() string {
+    position := l.position
+    for isLetter(l.ch) {
+        l.readChar()
+    }
+    return l.input[position:l.position]
+}
+
+func (l *Lexer) readNumber() string {
+    position := l.position
+    for isDigit(l.ch) {
+        l.readChar()
+    }
+    return l.input[position:l.position]
+}
+
+func isLetter(ch byte) bool {
+    return 'a' &lt;= ch && ch &lt;= 'z' ||
+           'A' &lt;= ch && ch &lt;= 'Z' || ch == '_'
+}
+
+func isDigit(ch byte) bool {
+    return '0' &lt;= ch && ch &lt;= '9'
+}</code></pre>
+                    </div>
+
+                    <div class="warn-box">
+                        <strong>Bug clásico de examen:</strong> ¿Por qué <code>isLetter</code> y <code>isDigit</code> hacen <code>return tok</code> antes del final? Porque <code>readIdentifier()</code> ya avanzó <code>l.ch</code> al primer carácter <em>no-letra</em>. Si dejáramos correr el <code>l.readChar()</code> del final, ¡nos saltaríamos un carácter (por ejemplo el <code>;</code>)!
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== SLIDE 7: PEEKCHAR (== y !=) ==================== -->
+        <section id="dos-caracteres" class="section slide">
+            <h2>6. Tokens de Dos Caracteres: <code>==</code> y <code>!=</code> con <code>peekChar()</code></h2>
+            <p>¿Cómo distingue el Lexer entre <code>=</code> (<code>ASSIGN</code>) y <code>==</code> (<code>EQ</code>), o entre <code>!</code> (<code>BANG</code>) y <code>!=</code> (<code>NOT_EQ</code>)? Espiando un carácter adelante <strong>sin avanzar</strong>.</p>
+
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>lexer/lexer.go · peekChar()</span></div>
+<pre><code class="language-go">func (l *Lexer) peekChar() byte {
+    if l.readPosition &gt;= len(l.input) {
+        return 0
+    } else {
+        return l.input[l.readPosition]
+    }
+}</code></pre>
+                </div>
+
+                <div class="code-block">
+                    <div class="code-header"><span>lexer/lexer.go · Casos '=' y '!'</span></div>
+<pre><code class="language-go">case '=':
+    if l.peekChar() == '=' {
+        ch := l.ch          // guardamos el primer '='
+        l.readChar()        // avanzamos al segundo '='
+        literal := string(ch) + string(l.ch)
+        tok = token.Token{Type: token.EQ, Literal: literal}
+    } else {
+        tok = newToken(token.ASSIGN, l.ch)
+    }
+case '!':
+    if l.peekChar() == '=' {
+        ch := l.ch
+        l.readChar()
+        literal := string(ch) + string(l.ch)
+        tok = token.Token{Type: token.NOT_EQ, Literal: literal}
+    } else {
+        tok = newToken(token.BANG, l.ch)
+    }</code></pre>
+                </div>
+            </div>
+
+            <div class="analogy-box">
+                <strong>Lookahead de 1 carácter:</strong> Observa la elegancia de haber separado <code>position</code> y <code>readPosition</code>: <code>peekChar()</code> es casi idéntico a <code>readChar()</code>, pero <strong>no modifica los índices</strong>. Solo si confirmamos el segundo carácter (<code>'='</code>) consumimos con <code>l.readChar()</code>.
+            </div>
+        </section>
+
+        <!-- ==================== SLIDE 8: TESTING DEL LEXER ==================== -->
+        <section id="testing-lexer" class="section slide">
+            <h2>7. Probando el Lexer con Table-Driven Tests</h2>
+            <p>En <code>lexer/lexer_test.go</code> probamos código real de Monkey e incluso líneas sin sentido sintáctico como <code>!-/*5;</code> para ejercitar todos los tokens y casos borde:</p>
+
+            <div class="code-block">
+                <div class="code-header"><span>lexer/lexer_test.go</span></div>
+<pre><code class="language-go">package lexer
+
+import (
+    "testing"
+    "monkey/token"
+)
+
+func TestNextToken(t *testing.T) {
+    input := `let five = 5;
+let ten = 10;
+
+let add = fn(x, y) {
+  x + y;
+};
+
+let result = add(five, ten);
+!-/*5;
+5 &lt; 10 &gt; 5;
+
+if (5 &lt; 10) {
+    return true;
+} else {
+    return false;
+}
+
+10 == 10;
+10 != 9;
+`
+    tests := []struct {
+        expectedType    token.TokenType
+        expectedLiteral string
+    }{
+        {token.LET, "let"},
+        {token.IDENT, "five"},
+        {token.ASSIGN, "="},
+        {token.INT, "5"},
+        {token.SEMICOLON, ";"},
+        // ... resto de tokens hasta token.EOF
+    }
+
+    l := New(input)
+
+    for i, tt := range tests {
+        tok := l.NextToken()
+        if tok.Type != tt.expectedType {
+            t.Fatalf("tests[%d] - tokentype wrong. expected=%q, got=%q",
+                i, tt.expectedType, tok.Type)
+        }
+        if tok.Literal != tt.expectedLiteral {
+            t.Fatalf("tests[%d] - literal wrong. expected=%q, got=%q",
+                i, tt.expectedLiteral, tok.Literal)
+        }
+    }
+}</code></pre>
+            </div>
+        </section>
+
+        <!-- ==================== SLIDE 9: PRIMER REPL ==================== -->
+        <section id="repl" class="section slide">
+            <h2>8. Nuestro Primer REPL (<code>repl/repl.go</code> y <code>main.go</code>)</h2>
+            <p><strong>REPL</strong> significa <em>Read - Eval - Print - Loop</em>. Aún no evaluamos código, pero ya podemos leer líneas del usuario y mostrar en tiempo real todos los tokens que reconoce nuestro Lexer:</p>
+
+            <div class="grid-2">
+                <div class="code-block">
+                    <div class="code-header"><span>repl/repl.go</span></div>
+<pre><code class="language-go">package repl
+
+import (
+    "bufio"
+    "fmt"
+    "io"
+    "monkey/lexer"
+    "monkey/token"
+)
+
+const PROMPT = "&gt;&gt; "
+
+func Start(in io.Reader, out io.Writer) {
+    scanner := bufio.NewScanner(in)
+
+    for {
+        fmt.Fprintf(out, PROMPT)
+        scanned := scanner.Scan()
+        if !scanned {
+            return
+        }
+
+        line := scanner.Text()
+        l := lexer.New(line)
+
+        for tok := l.NextToken(); tok.Type != token.EOF; tok = l.NextToken() {
+            fmt.Fprintf(out, "%+v\n", tok)
+        }
+    }
+}</code></pre>
+                </div>
+
+                <div class="code-block">
+                    <div class="code-header"><span>main.go</span></div>
+<pre><code class="language-go">package main
+
+import (
+    "fmt"
+    "os"
+    "os/user"
+    "monkey/repl"
+)
+
+func main() {
+    user, err := user.Current()
+    if err != nil {
+        panic(err)
+    }
+    fmt.Printf("Hello %s! This is the Monkey programming language!\n",
+        user.Username)
+    fmt.Printf("Feel free to type in commands\n")
+    repl.Start(os.Stdin, os.Stdout)
+}</code></pre>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== SLIDE 10: SIMULADOR EN VIVO ==================== -->
+        <section id="simulador" class="section slide">
+            <h2>9. Simulador Interactivo del Lexer de Monkey</h2>
+            <p>Escribe cualquier fragmento de código Monkey (o prueba los ejemplos) para ver exactamente los tokens que produce nuestro <code>Lexer</code> del Capítulo 1:</p>
+
+            <div class="playground">
+                <textarea id="lexer-demo-input" class="playground-input" spellcheck="false">let add = fn(x, y) {
+    if (x != y) { return x + y; }
+};</textarea>
+                <div class="playground-actions">
+                    <button type="button" class="btn-pill primary" id="btn-tokenize">▶ Tokenizar</button>
+                    <button type="button" class="btn-pill" data-sample="let five = 5; let ten = 10;">Ejemplo: Variables</button>
+                    <button type="button" class="btn-pill" data-sample="10 == 10; 10 != 9; !true;">Ejemplo: == y !=</button>
+                    <button type="button" class="btn-pill" data-sample="let precio = $100 @ #;">Ejemplo: ILLEGAL</button>
+                </div>
+                <div style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 0.4rem;">
+                    Flujo de salida (<span id="token-count">0</span> tokens):
+                </div>
+                <div id="lexer-demo-output" class="token-stream"></div>
+            </div>
+        </section>
+
+        <!-- CORRER:INICIO -->
+        <!-- Generado por scripts/build_correr.py: no editar a mano. -->
+        <section id="correr" class="section slide">
+            <h2>Córrelo en ZeldaInterpreter</h2>
+            <p>Tu lexer ya existe en <code>zeldainterpreter/</code>. Con <code>-modo=tokens</code> el intérprete se detiene después del análisis léxico y muestra la tabla de tokens: compárala con lo que produce tu <code>NextToken()</code>.</p>
+            
+            <div class="grid-2 correr-grid">
+<div><div class="code-block"><div class="code-header"><span>terminal · primero, las pruebas (deben salir en ok)</span></div>
+<pre><code class="language-bash">cd zeldainterpreter
+go test ./lexer/</code></pre></div></div>
+<div><div class="code-block"><div class="code-header"><span>salida</span></div>
+<pre><code class="language-plaintext">ok  	zeldainterpreter/lexer</code></pre></div></div>
+            </div>
+            <div class="grid-2 correr-grid">
+<div class="card">
+<h3>Tokens de una sentencia</h3>
+<p>Las palabras reservadas salen de <code>LookupIdent()</code>: <code>let</code> es <code>LET</code>, <code>cinco</code> es <code>IDENT</code>.</p>
+<div class="code-block"><div class="code-header"><span>terminal</span></div>
+<pre><code class="language-bash">go run . -modo=tokens -e &#x27;let cinco = 5;&#x27;</code></pre></div>
+<div class="code-block"><div class="code-header"><span>salida</span></div>
+<pre><code class="language-plaintext">  1  LET        &quot;let&quot;
+  2  IDENT      &quot;cinco&quot;
+  3  =          &quot;=&quot;
+  4  INT        &quot;5&quot;
+  5  ;          &quot;;&quot;
+  6  EOF        &quot;&quot;</code></pre></div>
+</div>
+<div class="card">
+<h3>Operadores de dos caracteres</h3>
+<p><code>==</code> y <code>!=</code> salen como un solo token gracias a <code>peekChar()</code>.</p>
+<div class="code-block"><div class="code-header"><span>terminal</span></div>
+<pre><code class="language-bash">go run . -modo=tokens -e &#x27;10 == 10; 10 != 9;&#x27;</code></pre></div>
+<div class="code-block"><div class="code-header"><span>salida</span></div>
+<pre><code class="language-plaintext">  1  INT        &quot;10&quot;
+  2  ==         &quot;==&quot;
+  3  INT        &quot;10&quot;
+  4  ;          &quot;;&quot;
+  5  INT        &quot;10&quot;
+  6  !=         &quot;!=&quot;
+  7  INT        &quot;9&quot;
+  8  ;          &quot;;&quot;
+  9  EOF        &quot;&quot;</code></pre></div>
+</div>
+<div class="card">
+<h3>La consola en modo tokens</h3>
+<p>El REPL del Capítulo 1: lee una línea y la tokeniza.</p>
+<div class="code-block"><div class="code-header"><span>terminal</span></div>
+<pre><code class="language-bash">go run . -modo=tokens</code></pre></div>
+<div class="code-block"><div class="code-header"><span>consola interactiva</span></div>
+<pre><code class="language-plaintext">ZeldaInterpreter · intérprete del lenguaje Monkey
+Modo actual: tokens. Escribe :ayuda para ver los comandos, :salir para terminar.
+&gt;&gt; x != 10
+  1  IDENT      &quot;x&quot;
+  2  !=         &quot;!=&quot;
+  3  INT        &quot;10&quot;
+  4  EOF        &quot;&quot;
+&gt;&gt; :salir
+¡Hasta pronto!</code></pre></div>
+</div>
+</div>
+            <div class="info-box"><strong>¿Y mi propio intérprete?</strong> Si construyes el tuyo siguiendo el libro, los mismos comandos funcionan sobre tu código a medida que avanzas. <code>zeldainterpreter/</code> es la versión de referencia completa para comparar resultados.</div>
+        </section>
+        <!-- CORRER:FIN -->
+
+
+        <!-- ==================== SIMULADOR ZELDAINTERPRETER ==================== -->
+        <section id="simulador-zelda" class="section slide">
+            <h2>Simulador ZeldaInterpreter</h2>
+            <p>Hoy construimos la fase 1. Compara la pestaña <strong>Tokens</strong> con tu <code>lexer.NextToken()</code>: deben producir exactamente la misma secuencia. Las otras pestañas muestran lo que viene.</p>
+            <div data-simulator data-stage="tokens" data-code="let add = fn(x, y) {&#10;  x + y;&#10;};&#10;let result = add(5, 10) != 15;"></div>
+        </section>
+
+        <!-- ==================== SLIDE 11: TALLER ==================== -->
+        <section id="taller" class="section slide">
+            <h2>10. Taller Práctico — Semana 3</h2>
+            <div class="card glass">
+                <h3><span data-icon="wrench"></span>Entregable: Paquetes <code>token</code>, <code>lexer</code> y <code>repl</code> completos</h3>
+                <ol>
+                    <li>Crea el repositorio oficial de tu intérprete (<code>go mod init monkey</code>) e implementa paso a paso los paquetes <code>token</code>, <code>lexer</code>, <code>repl</code> y <code>main.go</code> del Capítulo 1.</li>
+                    <li>Verifica que <code>go test -v ./lexer</code> pase al 100% con el test completo del libro.</li>
+                    <li><strong>Reto de extensión en clase:</strong> Agrega soporte en tu Lexer para:
+                        <ul>
+                            <li>Los operadores de dos caracteres <code>&lt;=</code> (<code>LTE</code>) y <code>&gt;=</code> (<code>GTE</code>) usando <code>peekChar()</code>.</li>
+                            <li>Comentarios de una línea que empiecen con <code>//</code> (el Lexer debe ignorarlos hasta el salto de línea <code>\n</code>).</li>
+                        </ul>
+                    </li>
+                    <li>Escribe pruebas unitarias propias para validar tus extensiones.</li>
+                </ol>
+            </div>
+
+            <div class="tip-box">
+                <strong>Próxima semana (Semana 4 · Cap. 2A):</strong> Tomaremos esta secuencia de tokens y construiremos el <strong>AST (Árbol de Sintaxis Abstracta)</strong> y la base del <strong>Parser</strong> para sentencias <code>let</code> y <code>return</code>.
+            </div>
+            <div class="exercise-cta">
+                <div>
+                    <h3>Guía de ejercicios · Semana 3</h3>
+                    <p>Preguntas conceptuales, trazas a mano y retos de programación para resolver en casa.</p>
+                </div>
+                <a class="btn-download" data-pdf-link href="#"><span data-icon="file-down"></span>Descargar PDF</a>
+            </div>
+
+        </section>
+
+        <nav class="class-footer-nav" data-course-footer aria-label="Navegación entre clases"></nav>
+
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/go.min.js"></script>
+    <script src="../assets/course.js"></script>
+    <script src="../assets/presentation.js"></script>
+    <script src="../assets/monkey.js"></script>
+    <script src="../assets/simulator.js"></script>
+
+    <!-- Mini Lexer de Monkey fiel al Cap. 1 para demostración en clase -->
+    <script>
+        (function () {
+            const KEYWORDS = {
+                fn: 'FUNCTION',
+                let: 'LET',
+                true: 'TRUE',
+                false: 'FALSE',
+                if: 'IF',
+                else: 'ELSE',
+                return: 'RETURN'
+            };
+
+            function isLetter(ch) {
+                return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch === '_';
+            }
+
+            function isDigit(ch) {
+                return ch >= '0' && ch <= '9';
+            }
+
+            function lexMonkey(input) {
+                let pos = 0;
+                let readPos = 0;
+                let ch = '';
+
+                function readChar() {
+                    ch = readPos >= input.length ? '\0' : input[readPos];
+                    pos = readPos;
+                    readPos += 1;
+                }
+
+                function peekChar() {
+                    return readPos >= input.length ? '\0' : input[readPos];
+                }
+
+                function skipWhitespace() {
+                    while (ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r') {
+                        readChar();
+                    }
+                }
+
+                function readWhile(predicate) {
+                    const start = pos;
+                    while (predicate(ch)) readChar();
+                    return input.slice(start, pos);
+                }
+
+                readChar();
+                const tokens = [];
+
+                while (true) {
+                    skipWhitespace();
+                    let tok;
+                    switch (ch) {
+                        case '=':
+                            if (peekChar() === '=') {
+                                const c = ch;
+                                readChar();
+                                tok = { type: 'EQ', literal: c + ch };
+                            } else {
+                                tok = { type: 'ASSIGN', literal: ch };
+                            }
+                            break;
+                        case '!':
+                            if (peekChar() === '=') {
+                                const c = ch;
+                                readChar();
+                                tok = { type: 'NOT_EQ', literal: c + ch };
+                            } else {
+                                tok = { type: 'BANG', literal: ch };
+                            }
+                            break;
+                        case '+': tok = { type: 'PLUS', literal: ch }; break;
+                        case '-': tok = { type: 'MINUS', literal: ch }; break;
+                        case '/': tok = { type: 'SLASH', literal: ch }; break;
+                        case '*': tok = { type: 'ASTERISK', literal: ch }; break;
+                        case '<': tok = { type: 'LT', literal: ch }; break;
+                        case '>': tok = { type: 'GT', literal: ch }; break;
+                        case ';': tok = { type: 'SEMICOLON', literal: ch }; break;
+                        case ',': tok = { type: 'COMMA', literal: ch }; break;
+                        case '(': tok = { type: 'LPAREN', literal: ch }; break;
+                        case ')': tok = { type: 'RPAREN', literal: ch }; break;
+                        case '{': tok = { type: 'LBRACE', literal: ch }; break;
+                        case '}': tok = { type: 'RBRACE', literal: ch }; break;
+                        case '\0':
+                            tokens.push({ type: 'EOF', literal: '' });
+                            return tokens;
+                        default:
+                            if (isLetter(ch)) {
+                                const lit = readWhile(isLetter);
+                                tokens.push({ type: KEYWORDS[lit] || 'IDENT', literal: lit });
+                                continue;
+                            } else if (isDigit(ch)) {
+                                const lit = readWhile(isDigit);
+                                tokens.push({ type: 'INT', literal: lit });
+                                continue;
+                            } else {
+                                tok = { type: 'ILLEGAL', literal: ch };
+                            }
+                    }
+                    tokens.push(tok);
+                    readChar();
+                }
+            }
+
+            const inputEl = document.getElementById('lexer-demo-input');
+            const outEl = document.getElementById('lexer-demo-output');
+            const countEl = document.getElementById('token-count');
+            const runBtn = document.getElementById('btn-tokenize');
+
+            function render() {
+                const toks = lexMonkey(inputEl.value);
+                countEl.textContent = toks.length;
+                outEl.innerHTML = '';
+                toks.forEach((t) => {
+                    const chip = document.createElement('span');
+                    chip.className = 'token-chip' + (t.type === 'ILLEGAL' ? ' tok-illegal' : '');
+                    const typeSpan = document.createElement('span');
+                    typeSpan.className = 'tok-type';
+                    typeSpan.textContent = t.type;
+                    const litSpan = document.createElement('span');
+                    litSpan.className = 'tok-lit';
+                    litSpan.textContent = JSON.stringify(t.literal);
+                    chip.appendChild(typeSpan);
+                    chip.appendChild(litSpan);
+                    outEl.appendChild(chip);
+                });
+            }
+
+            runBtn.addEventListener('click', render);
+            inputEl.addEventListener('input', render);
+            document.querySelectorAll('[data-sample]').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    inputEl.value = btn.getAttribute('data-sample');
+                    render();
+                });
+            });
+
+            render();
+        })();
+    </script>
+</body>
+</html>
