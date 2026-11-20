@@ -4,3 +4,9 @@ ejercicios/solucionario/
 __pycache__/
 zeldainterpreter/zelda
 zeldainterpreter/zelda.exe
+
+# Perfil temporal de Chrome headless (generación de PDFs)
+prof/
+
+# Libro con derechos de autor: solo copia local
+dokumen.pub_*.pdf
